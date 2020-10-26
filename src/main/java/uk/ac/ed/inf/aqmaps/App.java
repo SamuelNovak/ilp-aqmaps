@@ -35,6 +35,10 @@ public class App
         
         WebClient client = new WebClient(port);
         
-        client.load_map(year, month, day);
+        try {
+			client.load_map(year, month, day);
+		} catch (WebClientException e) {
+			e.printStackTrace();
+		}
     }
 }
