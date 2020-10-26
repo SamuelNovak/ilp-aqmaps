@@ -12,7 +12,6 @@ import java.util.ArrayList;
 
 import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
-import com.mapbox.geojson.Feature;
 import com.mapbox.geojson.FeatureCollection;
 import com.mapbox.geojson.Point;
 

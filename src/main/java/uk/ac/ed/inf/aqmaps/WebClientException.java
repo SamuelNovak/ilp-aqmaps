@@ -1,7 +1,8 @@
 package uk.ac.ed.inf.aqmaps;
 
+@SuppressWarnings("serial") // TODO je to problem?
 public class WebClientException extends Exception {
-	
+
 	private String comment;
 	private Exception original; // for the case when the error is a general one, and it is not easily identifies
 	

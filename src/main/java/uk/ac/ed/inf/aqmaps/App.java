@@ -14,6 +14,7 @@ public class App
 	public static double lat_min = 55.942617;
 	public static double lon_max = -3.184319; // longitude
 	public static double lon_min = -3.192473;
+	public static double move_length = 0.0003;
 	
     public static void main(String[] args)
     {
@@ -49,8 +50,12 @@ public class App
 		} catch (WebClientException e) {
 			e.printStackTrace();
 			System.exit(2);
+			return; // so Java doesn't complain TODO
 		}
         
+        
+        PathSolver solver = new PathSolver(map, noFlyZones, rand_seed);
+        ArrayList<Double> moves = solver.findPath(start_lat, start_lon);
         
     }
 }
