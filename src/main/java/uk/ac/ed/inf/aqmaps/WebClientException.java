@@ -6,6 +6,7 @@ public class WebClientException extends Exception {
 	private Exception original; // for the case when the error is a general one, and it is not easily identifies
 	
 	// TODO naco mi to je, ale to asi pojde do reportu
+	// Akoze aby boli uniformne vypadky z klienta
 	
 	public WebClientException(String comment, Exception original_exc) {
 		this.comment = comment;

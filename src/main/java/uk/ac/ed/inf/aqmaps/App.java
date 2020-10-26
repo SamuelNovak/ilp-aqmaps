@@ -1,5 +1,9 @@
 package uk.ac.ed.inf.aqmaps;
 
+import java.util.ArrayList;
+
+import com.mapbox.geojson.FeatureCollection;
+
 /**
  *
  */
@@ -33,12 +37,20 @@ public class App
         port      =   Integer.parseInt(args[6]);
         
         
-        WebClient client = new WebClient(port);
+        ArrayList<SensorReading> map;
+        FeatureCollection noFlyZones;
         
+        
+        // Loading data from webserver
+        WebClient client = new WebClient(port);
         try {
-			client.load_map(year, month, day);
+			map = client.loadMap(year, month, day);
+			noFlyZones = client.loadNoFlyZones();
 		} catch (WebClientException e) {
 			e.printStackTrace();
+			System.exit(2);
 		}
+        
+        
     }
 }

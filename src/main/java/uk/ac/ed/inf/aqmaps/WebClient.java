@@ -12,6 +12,9 @@ import java.util.ArrayList;
 
 import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
+import com.mapbox.geojson.Feature;
+import com.mapbox.geojson.FeatureCollection;
+import com.mapbox.geojson.Point;
 
 public class WebClient {
 
@@ -55,13 +58,35 @@ public class WebClient {
 		}
 	}
 	
-	public ArrayList<SensorReading> load_map(int year, int month, int day) throws WebClientException {
+	public ArrayList<SensorReading> loadMap(int year, int month, int day) throws WebClientException {
 		var response = load(String.format("maps/%d/%02d/%02d/air-quality-data.json", year, month, day));
 												// ^^^^ ^^^^ this will insert an integer and pad it with 0s to get 2 digits
 		
 		// deserialize the JSON received
 		Type sensorListType = new TypeToken<ArrayList<SensorReading>>() {}.getType();
 		ArrayList<SensorReading> sensorList = new Gson().fromJson(response, sensorListType);
+		
+		for (int i = 0; i < sensorList.size(); i++) {
+			SensorReading reading = sensorList.get(i);
+			Point coords = loadPointFromWords(reading.location);
+			reading.lat = coords.latitude();
+			reading.lng = coords.longitude();
+		}
+		
 		return sensorList;
+	}
+	
+	public Point loadPointFromWords(String words) throws WebClientException { // TODO mozno pouzit daco ine, akoze definovat dvojicu pre polohu?
+		// Function for loading coordinates from W3W
+		String[] wordsArray = words.split("\\.");
+		var response = load(String.format("words/%s/%s/%s/details.json", wordsArray[0], wordsArray[1], wordsArray[2]));
+		
+		W3WDetails details = new Gson().fromJson(response, W3WDetails.class);
+		return Point.fromLngLat(details.coordinates.lng, details.coordinates.lat);
+	}
+	
+	public FeatureCollection loadNoFlyZones() throws WebClientException {
+		var response = load("buildings/no-fly-zones.geojson");
+		return FeatureCollection.fromJson(response);
 	}
 }

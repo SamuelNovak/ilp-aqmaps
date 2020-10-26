@@ -4,4 +4,6 @@ public class SensorReading {
 	String location;
 	double battery;
 	String reading;
+	
+	double lat, lng;
 }
