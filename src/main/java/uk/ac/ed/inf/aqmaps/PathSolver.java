@@ -35,7 +35,11 @@ public class PathSolver {
 	}
 
 	// Path will be a sequence of directions the drone is to take
-	public ArrayList<Double> findPath(double start_lat, double start_lon) {
+	public ArrayList<Move> findPath(double start_lat, double start_lon) {
+		// TODO: first ordering of nodes
+		// TODO: then optimize for no-flight zones
+		// TODO: use a visibility matrix?
+		// TODO: perturbation?
 		return null;
 	}
 

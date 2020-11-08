@@ -10,11 +10,12 @@ import com.mapbox.geojson.FeatureCollection;
 public class App 
 {
 	
-	public static double lat_max = 55.946233; // latitude
-	public static double lat_min = 55.942617;
-	public static double lon_max = -3.184319; // longitude
-	public static double lon_min = -3.192473;
-	public static double move_length = 0.0003;
+	// Flight boundaries
+	public static final double LAT_MAX = 55.946233; // latitude
+	public static final double LAT_MIN = 55.942617;
+	public static final double LON_MAX = -3.184319; // longitude
+	public static final double LON_MIN = -3.192473;
+	public static final double MOVE_LENGTH = 0.0003; // length of EVERY drone step in degrees
 	
     public static void main(String[] args)
     {
@@ -26,8 +27,10 @@ public class App
         	System.exit(1);
         }
         
-        int day, month, year, rand_seed, port;
-        double start_lat, start_lon;
+        
+        // parse input values
+        final int day, month, year, rand_seed, port;
+        final double start_lat, start_lon;
         
         day       =   Integer.parseInt(args[0]);
         month     =   Integer.parseInt(args[1]);
@@ -38,12 +41,13 @@ public class App
         port      =   Integer.parseInt(args[6]);
         
         
+        // setup the map (list of sensor locations - in this stage of development with their readings as well)
         ArrayList<SensorReading> map;
         FeatureCollection noFlyZones;
         
         
         // Loading data from webserver
-        WebClient client = new WebClient(port);
+        var client = new WebClient(port);
         try {
 			map = client.loadMap(year, month, day);
 			noFlyZones = client.loadNoFlyZones();
@@ -54,8 +58,10 @@ public class App
 		}
         
         
-        PathSolver solver = new PathSolver(map, noFlyZones, rand_seed);
-        ArrayList<Double> moves = solver.findPath(start_lat, start_lon);
+        var solver = new PathSolver(map, noFlyZones, rand_seed);
+        ArrayList<Move> moves = solver.findPath(start_lat, start_lon); // TODO typ?
         
+        var mp = new MovePrinter("flightpath-DD-MM-YYYY.txt", "readings-DD-MM-YYYY.geojson");
+        mp.export(moves);
     }
 }

@@ -24,6 +24,7 @@ public class WebClient {
 	
 	public WebClient(int port) {
 		this.port = port;
+		// Client created once, reused for all requests
 		client = HttpClient.newHttpClient();
 	}
 	
@@ -77,7 +78,7 @@ public class WebClient {
 	
 	public Point loadPointFromWords(String words) throws WebClientException { // TODO mozno pouzit daco ine, akoze definovat dvojicu pre polohu?
 		// Function for loading coordinates from W3W
-		String[] wordsArray = words.split("\\.");
+		String[] wordsArray = words.split("\\."); // TODO viac komentarov
 		var response = load(String.format("words/%s/%s/%s/details.json", wordsArray[0], wordsArray[1], wordsArray[2]));
 		
 		W3WDetails details = new Gson().fromJson(response, W3WDetails.class);
