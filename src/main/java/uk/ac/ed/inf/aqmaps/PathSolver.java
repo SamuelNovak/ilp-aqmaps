@@ -10,6 +10,14 @@ import com.mapbox.geojson.Point;
 
 public class PathSolver {
 
+	// Flight boundaries
+	public static final double LAT_MAX = 55.946233; // latitude
+	public static final double LAT_MIN = 55.942617;
+	public static final double LON_MAX = -3.184319; // longitude
+	public static final double LON_MIN = -3.192473;
+	public static final double MOVE_LENGTH = 0.0003; // length of EVERY drone step in degrees
+	
+	
 	private ArrayList<SensorReading> map;
 	private FeatureCollection noFlyZones;
 	private int rand_seed;
@@ -24,11 +32,11 @@ public class PathSolver {
 		
 		evader = new ObstacleEvader(noFlyZones);
 		
-		// for debug:
+		// DEBUG
 		
 		var lines = new ArrayList<Feature>();
 		
-		// end debug
+		// END DEBUG
 		
 		// Compute the distance matrix
 		distances = new double[33][33];
@@ -72,6 +80,21 @@ public class PathSolver {
 		// TODO: use a visibility matrix?
 		// TODO: perturbation?
 		return null;
+	}
+	
+	private int[] solveTSP() { // TODO: name
+		var sequence = new int[33]; // permutation of sensors to visit, indexed by their order in this.map // TODO: better comment
+		for (int i = 0; i < 33; i++) // initial permutation
+			sequence[i] = i;
+		
+		// ALGORITHM (plug in your favourite)
+		
+		
+		
+		// END ALGORITHM
+		
+		
+		return sequence;
 	}
 
 }

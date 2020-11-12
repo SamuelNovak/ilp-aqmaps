@@ -10,7 +10,7 @@ public class ObstacleEvader {
 	
 	public ObstacleEvader(FeatureCollection noFlyZones) {
 		this.noFlyZones = noFlyZones;
-		// TODO preprocess obstacles
+		// TODO preprocess obstacles - mozno mi treba tazisko?
 	}
 	
 	public boolean crossesObstacle(Point a1, Point a2) {

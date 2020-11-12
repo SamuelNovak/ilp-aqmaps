@@ -15,6 +15,10 @@ import com.google.gson.reflect.TypeToken;
 import com.mapbox.geojson.FeatureCollection;
 import com.mapbox.geojson.Point;
 
+/**
+ * Web client used for loading (and parsing) relevant data from the HTTP server.
+ *
+ */
 public class WebClient {
 
 	private final String host = "http://localhost";
@@ -30,7 +34,7 @@ public class WebClient {
 	
 	private String load(String path) throws WebClientException {
 		var uri = URI.create(String.format(host + ":%d/%s", port, path));
-		System.out.println("Loading: " + uri.toString());
+		// System.out.println("Loading: " + uri.toString());
 		var request = HttpRequest.newBuilder().uri(uri).build();
 		
 		HttpResponse<String> response = null;
@@ -59,6 +63,7 @@ public class WebClient {
 	}
 	
 	public ArrayList<SensorReading> loadMap(int year, int month, int day) throws WebClientException {
+		System.out.println("Loading sensor map.");
 		var response = load(String.format("maps/%d/%02d/%02d/air-quality-data.json", year, month, day));
 												// ^^^^ ^^^^ this will insert an integer and pad it with 0s to get 2 digits
 		
@@ -66,6 +71,7 @@ public class WebClient {
 		Type sensorListType = new TypeToken<ArrayList<SensorReading>>() {}.getType();
 		ArrayList<SensorReading> sensorList = new Gson().fromJson(response, sensorListType);
 		
+		System.out.println("  Translating What3Words locations.");
 		for (int i = 0; i < sensorList.size(); i++) {
 			SensorReading reading = sensorList.get(i);
 			Point coords = loadPointFromWords(reading.location);
@@ -76,9 +82,9 @@ public class WebClient {
 		return sensorList;
 	}
 	
-	public Point loadPointFromWords(String words) throws WebClientException { // TODO mozno pouzit daco ine, akoze definovat dvojicu pre polohu?
+	public Point loadPointFromWords(String words) throws WebClientException {
 		// Function for loading coordinates from W3W
-		String[] wordsArray = words.split("\\."); // TODO viac komentarov
+		var wordsArray = words.split("\\."); // TODO viac komentarov
 		var response = load(String.format("words/%s/%s/%s/details.json", wordsArray[0], wordsArray[1], wordsArray[2]));
 		
 		W3WDetails details = new Gson().fromJson(response, W3WDetails.class);
@@ -86,6 +92,7 @@ public class WebClient {
 	}
 	
 	public FeatureCollection loadNoFlyZones() throws WebClientException {
+		System.out.println("Loading no fly zones.");
 		var response = load("buildings/no-fly-zones.geojson");
 		return FeatureCollection.fromJson(response);
 	}

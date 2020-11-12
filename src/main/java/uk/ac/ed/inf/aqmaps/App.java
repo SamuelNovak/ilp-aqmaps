@@ -33,12 +33,12 @@ public class App
         port      =   Integer.parseInt(args[6]);
         
         
-        // setup the map (list of sensor locations - in this stage of development with their readings as well)
+        // setup the map (list of sensor locations; in this stage of development with their readings as well)
         ArrayList<SensorReading> map;
         FeatureCollection noFlyZones;
         
         
-        // Loading data from webserver
+        // Load data from server
         var client = new WebClient(port);
         try {
 			map = client.loadMap(year, month, day);
@@ -51,9 +51,9 @@ public class App
         
         
         var solver = new PathSolver(map, noFlyZones, rand_seed);
-        ArrayList<Move> moves = solver.findPath(start_lat, start_lon); // TODO typ?
+        ArrayList<Move> moves = solver.findPath(start_lat, start_lon);
         
-        var mp = new MovePrinter("flightpath-DD-MM-YYYY.txt", "readings-DD-MM-YYYY.geojson");
+        var mp = new DroneController("flightpath-DD-MM-YYYY.txt", "readings-DD-MM-YYYY.geojson");
         mp.export(moves);
     }
 }

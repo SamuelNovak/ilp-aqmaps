@@ -2,12 +2,12 @@ package uk.ac.ed.inf.aqmaps;
 
 import java.util.ArrayList;
 
-public class MovePrinter {
+public class DroneController {
 
 	private String flightpathFilename;
 	private String readingsMapFilename;
 	
-	public MovePrinter(String flightpathFilename, String readingsMapFilename) {
+	public DroneController(String flightpathFilename, String readingsMapFilename) {
 		this.flightpathFilename = flightpathFilename;
 		this.readingsMapFilename = readingsMapFilename;
 	}
