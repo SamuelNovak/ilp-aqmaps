@@ -6,7 +6,7 @@ package uk.ac.ed.inf.aqmaps;
  */
 public class SensorReading {
 	String location;
-	double lat, lng;
+	double lat, lon;
 	
 	double battery;
 	String reading;

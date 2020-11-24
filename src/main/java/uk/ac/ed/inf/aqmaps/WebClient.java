@@ -76,7 +76,7 @@ public class WebClient {
 			SensorReading reading = sensorList.get(i);
 			Point coords = loadPointFromWords(reading.location);
 			reading.lat = coords.latitude();
-			reading.lng = coords.longitude();
+			reading.lon = coords.longitude();
 		}
 		
 		return sensorList;

@@ -39,7 +39,7 @@ public class PathSolver {
 		// END DEBUG
 		
 		// Compute the distance matrix
-		distances = new double[33][33];
+		distances = new double[33 + 1][33 + 1]; // 33 sensors + 1 starting location
 		for (int i = 0; i < 33; i++)
 			for (int j = 0; j <= i; j++) {
 				if (i == j) distances[i][j] = 0;
@@ -51,8 +51,8 @@ public class PathSolver {
 				// DEBUG
 				
 				var pts = new ArrayList<Point>();
-				pts.add(Point.fromLngLat(map.get(i).lng, map.get(i).lat));
-				pts.add(Point.fromLngLat(map.get(j).lng, map.get(j).lat));
+				pts.add(Point.fromLngLat(map.get(i).lon, map.get(i).lat));
+				pts.add(Point.fromLngLat(map.get(j).lon, map.get(j).lat));
 				var ftr = Feature.fromGeometry((Geometry) LineString.fromLngLats(pts));
 				ftr.addStringProperty("stroke", evader.crossesObstacle(pts.get(0), pts.get(1)) ? "#ff00c0" : "#00cc00");
 				lines.add(ftr);
@@ -70,7 +70,7 @@ public class PathSolver {
 	}
 	
 	public static double distance(SensorReading x, SensorReading y) {
-		return Math.hypot(x.lat - y.lat, x.lng - y.lng);
+		return Math.hypot(x.lat - y.lat, x.lon - y.lon);
 	}
 
 	// Path will be a sequence of directions the drone is to take
@@ -79,17 +79,71 @@ public class PathSolver {
 		// TODO: then optimize for no-flight zones
 		// TODO: use a visibility matrix?
 		// TODO: perturbation?
+		
+		for (int i = 0; i < 33; i++) { // calculate the distances to the starting location
+			distances[33][i] = Math.hypot(start_lat - map.get(i).lat, start_lon - map.get(i).lon);
+			distances[i][33] = distances[33][i];
+		}
+		
 		return null;
 	}
 	
-	private int[] solveTSP() { // TODO: name
-		var sequence = new int[33]; // permutation of sensors to visit, indexed by their order in this.map // TODO: better comment
-		for (int i = 0; i < 33; i++) // initial permutation
-			sequence[i] = i;
+	private ArrayList<Integer> solveTSP() { // TODO: name
+		var sequence = new ArrayList<Integer>(); // sequence of sensors to visit, identified by their index in this.map
 		
-		// ALGORITHM (plug in your favourite)
+		// ALGORITHM goes here
+		// trying: Nearest Insert (O(n^2)), because I am already familiar, and then optimize by 2-opt (O(n^2))
 		
+		var unused = new ArrayList<Integer>(); // so far unused sensors
 		
+		{ // isolating this block so it's clear where the local vars belong
+			var min = distances[0][1]; // TODO possibly put this into a different method?
+			var na = 0; // nearest sensors
+			var nb = 1;
+			for (int i = 1; i < 34; i++) { // finding the nearest pair of sensors
+				for (int j = i + 1; j < 34; j++) {
+					if (distances[i][j] < min) {
+						min = distances[i][j];
+						na = i;
+						nb = j;
+					}
+				}
+			}
+			
+			sequence.add(na); // start the sequence with the minimum that was found
+			sequence.add(nb);
+			
+			for (int i = 0; i < 34; i++) // initialize the set of unused sensors - this will be needed for the nearest insert algorithm
+				if (i != na && i != nb)
+					unused.add(i);
+		}
+		
+		// NEAREST INSERT
+		
+		while (!unused.isEmpty()) {
+			var min = distances[sequence.get(0)][unused.get(0)];
+			var minu = unused.get(0); // this will hold the unused node that is to be inserted - is nearest to sequence
+			var mini = 0; // this will hold the node in sequence where the nearest insertion was found
+			// TODO comments: replace sensor with the more generic "node" or "vertex"
+			// find an unused sensor that is nearest to some other sensor which is already in the sequence 
+			for (int i = 0; i < sequence.size(); i++) { // i corresponds to index of a sensor already used in the sequence
+				for (var u : unused) { // u is an unused sensor
+					if (distances[sequence.get(i)][u] < min) {
+						min = distances[sequence.get(i)][u];
+						mini = i;
+						minu = u;
+					}
+				}
+			}
+			// now need to decide on which side of mini to insert minu - before or after
+			var dist_before = distances[(mini - 1) % sequence.size()][minu];
+			var dist_after  = distances[(mini + 1) % sequence.size()][minu];
+			if (dist_before < dist_after) {
+				// insert to sequence[mini]
+			} else {
+				// insert to sequence[mini + 1 mod size]
+			}
+		}
 		
 		// END ALGORITHM
 		
