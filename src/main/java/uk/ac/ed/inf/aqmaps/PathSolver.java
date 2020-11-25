@@ -85,7 +85,7 @@ public class PathSolver {
 			distances[i][33] = distances[33][i];
 		}
 		
-		var TSP_path = solveTSP();
+		var TSP_path = solveTSP(start_lat, start_lon);
 		
 		// TODO DEBUG
 		var pts = new ArrayList<Point>();
@@ -114,7 +114,7 @@ public class PathSolver {
 		return null;
 	}
 	
-	private ArrayList<Integer> solveTSP() { // TODO: name
+	private ArrayList<Integer> solveTSP(double start_lat, double start_lon) { // TODO: name
 		var sequence = new ArrayList<Integer>(); // sequence of sensors to visit, identified by their index in this.map
 		
 		// ALGORITHM goes here
@@ -174,6 +174,28 @@ public class PathSolver {
 			// remove minu from unused // using cast to object so it actually removes the element, not index
 			unused.remove((Object) minu);
 		}
+		
+		// TWO-OPT
+		for (int i = 0; i < 34; i++)
+			for (int j = 0; j < 34; j++) {
+				if (i == j)
+					continue;
+				
+				var vertex_i  = sequence.get(i);
+				var vertex_ii = sequence.get((i + 1) % 34);
+				var vertex_j  = sequence.get(j);
+				var vertex_jj = sequence.get((j + 1) % 34);
+				
+				// check if swapping them produces a shorter path
+				if (distances[vertex_i][vertex_jj] + distances[vertex_j][vertex_ii] <
+					distances[vertex_i][vertex_ii] + distances[vertex_j][vertex_jj])
+				{
+					// System.out.println(String.format("Swapping edges %d, %d", i, j));
+					sequence.set((i + 1) % 34, vertex_jj);
+					sequence.set((j + 1) % 34, vertex_ii);
+				}
+			}
+		
 		
 		// END ALGORITHM
 		
