@@ -31,7 +31,7 @@ public class ObstacleEvader {
 		return false;
 	}
 	
-	private boolean linesIntersect(Point a1, Point a2, Point b1, Point b2) {
+	private boolean linesIntersect(Point a1, Point a2, Point b1, Point b2) { // TODO java.awt.geom.Line2D?
 		// Store values locally, so that they can be used multiple times without overhead,
 		// and so that the computation is clear
 		var a1x = a1.longitude();

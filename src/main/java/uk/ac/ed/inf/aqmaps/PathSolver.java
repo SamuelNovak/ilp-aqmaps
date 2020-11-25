@@ -85,6 +85,32 @@ public class PathSolver {
 			distances[i][33] = distances[33][i];
 		}
 		
+		var TSP_path = solveTSP();
+		
+		// TODO DEBUG
+		var pts = new ArrayList<Point>();
+		for (var i : TSP_path) {
+			if (i == 33)
+				pts.add(Point.fromLngLat(start_lon, start_lat));
+			else
+				pts.add(Point.fromLngLat(map.get(i).lon, map.get(i).lat));
+		}
+		{
+			var i = TSP_path.get(0);
+			if (i == 33)
+				pts.add(Point.fromLngLat(start_lon, start_lat));
+			else
+				pts.add(Point.fromLngLat(map.get(i).lon, map.get(i).lat));
+		}
+		var ftr = Feature.fromGeometry((Geometry) LineString.fromLngLats(pts));
+		
+		var ftrs = new ArrayList<Feature>();
+		ftrs.addAll(noFlyZones.features());
+		ftrs.add(ftr);
+		FeatureCollection col = FeatureCollection.fromFeatures(ftrs);
+		System.out.println(col.toJson());
+		// END DEBUG
+		
 		return null;
 	}
 	
@@ -136,17 +162,22 @@ public class PathSolver {
 				}
 			}
 			// now need to decide on which side of mini to insert minu - before or after
-			var dist_before = distances[(mini - 1) % sequence.size()][minu];
+			var dist_before = distances[(sequence.size() + mini - 1) % sequence.size()][minu];
 			var dist_after  = distances[(mini + 1) % sequence.size()][minu];
 			if (dist_before < dist_after) {
 				// insert to sequence[mini]
+				sequence.add(mini, minu);
 			} else {
 				// insert to sequence[mini + 1 mod size]
+				sequence.add((mini + 1) % sequence.size(), minu);
 			}
+			// remove minu from unused // using cast to object so it actually removes the element, not index
+			unused.remove((Object) minu);
 		}
 		
 		// END ALGORITHM
 		
+		System.out.println(sequence);
 		
 		return sequence;
 	}
