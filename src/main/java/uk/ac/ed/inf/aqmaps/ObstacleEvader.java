@@ -1,5 +1,7 @@
 package uk.ac.ed.inf.aqmaps;
 
+import java.awt.geom.Line2D;
+
 import com.mapbox.geojson.FeatureCollection;
 import com.mapbox.geojson.Point;
 import com.mapbox.geojson.Polygon;
@@ -32,35 +34,14 @@ public class ObstacleEvader {
 	}
 	
 	private static boolean linesIntersect(Point a1, Point a2, Point b1, Point b2) { // TODO java.awt.geom.Line2D?
-		// Store values locally, so that they can be used multiple times without overhead,
-		// and so that the computation is clear
-		var a1x = a1.longitude();
-		var a1y = a1.latitude();
+		Line2D line_a = new Line2D.Double(a1.latitude(), a1.longitude(), a2.latitude(), a2.longitude());
+		Line2D line_b = new Line2D.Double(b1.latitude(), b1.longitude(), b2.latitude(), b2.longitude());
+		return line_a.intersectsLine(line_b);		
+	}
+	
+	public double evasionDistance(Point a1, Point a2) {
 		
-		var a2x = a2.longitude();
-		var a2y = a2.latitude();
-		
-		var b1x = b1.longitude();
-		var b1y = b1.latitude();
-		
-		var b2x = b2.longitude();
-		var b2y = b2.latitude();
-		
-		// See report for formulation
-		var beta = ( (b1y - a1y)*(a2x - a1x) - (b1x - a1x)*(a2y - a1y) )
-				 / ( (b2x - b1x)*(a2y - a1y) - (b2y - b1y)*(b2x - b1x) );
-		
-		if ((beta < 0) || (beta > 1)) // intersection can only occur if beta is within the interval [0,1]
-			return false;
-		
-		var alpha = (b1x - a1x + beta * (b2x - b1x))
-				  / (a2x - a1x);
-		
-		if ((alpha < 0) || (alpha > 1)) // alpha must also be in the interval [0,1] 
-			return false;
-		
-		// otherwise (so both alpha and beta are in [0,1]), there is an intersection of these lines
-		return true;
-	} 
+		return 0;
+	}
 
 }

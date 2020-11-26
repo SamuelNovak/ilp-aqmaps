@@ -34,7 +34,7 @@ public class PathSolver {
 		
 		// DEBUG
 		
-		var lines = new ArrayList<Feature>();
+		// var lines = new ArrayList<Feature>();
 		
 		// END DEBUG
 		
@@ -45,27 +45,34 @@ public class PathSolver {
 				if (i == j) distances[i][j] = 0;
 				else {
 					distances[i][j] = distance(map.get(i), map.get(j));
+					
+					// TODO unify all the Point classes - maybe make my own
+					var point_i = Point.fromLngLat(map.get(i).lon, map.get(i).lat);
+					var point_j = Point.fromLngLat(map.get(j).lon, map.get(j).lat);
+					if (evader.crossesObstacle(point_i, point_j))
+						distances[i][j] += 1;//evader.evasionDistance(point_i, point_j);
+					
 					distances[j][i] = distances[i][j]; // TODO toto sa da urobit aj jednostranne, ale neviem ci treba
 				}
 				
 				// DEBUG
-				
+				/*
 				var pts = new ArrayList<Point>();
 				pts.add(Point.fromLngLat(map.get(i).lon, map.get(i).lat));
 				pts.add(Point.fromLngLat(map.get(j).lon, map.get(j).lat));
 				var ftr = Feature.fromGeometry((Geometry) LineString.fromLngLats(pts));
 				ftr.addStringProperty("stroke", evader.crossesObstacle(pts.get(0), pts.get(1)) ? "#ff00c0" : "#00cc00");
 				lines.add(ftr);
-				
+				*/
 				// END DEBUG
 			}
 		
 		// DEBUG
-		
+		/*
 		lines.addAll(noFlyZones.features());
 		FeatureCollection col = FeatureCollection.fromFeatures(lines);
 		System.out.println(col.toJson());
-		
+		*/
 		// END DEBUG
 	}
 	
@@ -175,24 +182,84 @@ public class PathSolver {
 			unused.remove((Object) minu);
 		}
 		
-		// TWO-OPT
+		// TWO-OPT & SWAP
+		for (int trial = 0; trial < 2; trial++) // TODO want this?
 		for (int i = 0; i < 34; i++)
 			for (int j = 0; j < 34; j++) {
 				if (i == j)
 					continue;
 				
-				var vertex_i  = sequence.get(i);
-				var vertex_ii = sequence.get((i + 1) % 34);
-				var vertex_j  = sequence.get(j);
-				var vertex_jj = sequence.get((j + 1) % 34);
+				// Prepare vertices sequence[i-1] --- sequence[i] --- sequence[i+1] (mod 34)
+				// same for sequence[j-1] --- sequence[j] --- sequence[j+1] (mod 34)
+				var vertices_around_i = new int[4];
+				var vertices_around_j = new int[4];
+				
+				for (int k = -1; k < 3; k++) {
+					vertices_around_i[k+1] = sequence.get((34 + i + k) % 34);
+					vertices_around_j[k+1] = sequence.get((34 + j + k) % 34);
+				}
+				
+				// check if swapping vertices on the same line makes it better
+				// this will compare path [i-1] --- [i] --- [i+1] --- [i+2] vs
+				// the path               [i-1] --- [i+1] --- [i] --- [i+2]
+				// where [a] means sequence[a]
+				// this is an extremely localized optimization
+				{
+					double original_length = 0;
+					var swapped_length = distances[vertices_around_i[2]][vertices_around_i[1]]; 
+					for (int k = 0; k < vertices_around_i.length - 1; k++) {
+						original_length += distances[vertices_around_i[k]][vertices_around_i[k+1]];
+						if (k < 2)
+							swapped_length += distances[vertices_around_i[k]][vertices_around_i[k+2]];
+					}
+					
+					if (swapped_length < original_length) {
+						// System.out.print("Performing line self-optimization:\n  From ");
+						// for (int lp = 34 + i - 1; lp < 34 + i + 4; lp++)
+						//	   System.out.print(String.format("%d ", sequence.get(lp % 34)));
+						sequence.set(i, vertices_around_i[2]);
+						sequence.set((i+1) % 34, vertices_around_i[1]);
+						// System.out.print("\n  To   ");
+						// for (int lp = 34 + i - 1; lp < 34 + i + 4; lp++)
+						//     System.out.print(String.format("%d ", sequence.get(lp % 34)));
+						// System.out.println();
+					}
+				}
 				
 				// check if swapping them produces a shorter path
-				if (distances[vertex_i][vertex_jj] + distances[vertex_j][vertex_ii] <
-					distances[vertex_i][vertex_ii] + distances[vertex_j][vertex_jj])
 				{
-					// System.out.println(String.format("Swapping edges %d, %d", i, j));
-					sequence.set((i + 1) % 34, vertex_jj);
-					sequence.set((j + 1) % 34, vertex_ii);
+					/*if (distances[vertices_around_i[1]][vertices_around_j[2]] + distances[vertices_around_i[2]][vertices_around_j[1]] <
+						distances[vertices_around_i[1]][vertices_around_i[2]] + distances[vertices_around_j[1]][vertices_around_i[2]])
+					{
+						System.out.println(String.format("Swapping edges %d, %d", i, j));
+						sequence.set((i + 1) % 34, vertices_around_j[2]);
+						sequence.set((j + 1) % 34, vertices_around_i[2]);
+					}*/
+						
+					// attempt with global path length
+					double original_length = 0;
+					for (int k = 0; k < 34; k++)
+						original_length += distances[sequence.get(k)][sequence.get((k+1) % 34)];
+					
+					var trial_seq = new ArrayList<Integer>();
+					for (int k = 0; k < 34; k++)
+						trial_seq.add((int) sequence.get(k));
+					trial_seq.set((i + 1) % 34, vertices_around_j[2]);
+					trial_seq.set((j + 1) % 34, vertices_around_i[2]);
+					
+					// System.out.println(sequence);
+					// System.out.println(trial_seq);
+					// System.out.println();
+					
+					double trial_length = 0;
+					for (int k = 0; k < 34; k++)
+						trial_length += distances[trial_seq.get(k)][trial_seq.get((k+1) % 34)];
+					
+					if (trial_length < original_length) {
+						// System.out.println(String.format("Swapping edges %d, %d", i, j));
+						sequence.set((i + 1) % 34, vertices_around_j[2]);
+						sequence.set((j + 1) % 34, vertices_around_i[2]);
+					}
 				}
 			}
 		
