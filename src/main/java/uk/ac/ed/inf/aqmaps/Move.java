@@ -20,8 +20,8 @@ public class Move {
 		this.direction = direction;
 		this.sensor = sensor;
 		
-		var new_lon = original.longitude() + PathSolver.MOVE_LENGTH * Math.cos(Math.toRadians((double) direction));
-		var new_lat = original.latitude() + PathSolver.MOVE_LENGTH * Math.sin(Math.toRadians((double) direction));
+		var new_lon = original.longitude() + PathPlanner.MOVE_LENGTH * Math.cos(Math.toRadians((double) direction));
+		var new_lat = original.latitude() + PathPlanner.MOVE_LENGTH * Math.sin(Math.toRadians((double) direction));
 		next = Point.fromLngLat(new_lon, new_lat);
 	}
 

@@ -50,10 +50,10 @@ public class App
 		}
         
         
-        var solver = new PathSolver(map, noFlyZones, rand_seed);
+        var solver = new PathPlanner(map, noFlyZones, rand_seed);
         ArrayList<Move> moves = solver.findPath(start_lat, start_lon);
         
         var mp = new DroneController("flightpath-DD-MM-YYYY.txt", "readings-DD-MM-YYYY.geojson");
-        mp.export(moves);
+        mp.executePathPlan(moves);
     }
 }

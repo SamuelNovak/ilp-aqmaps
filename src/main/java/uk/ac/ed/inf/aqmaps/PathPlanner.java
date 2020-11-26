@@ -8,7 +8,7 @@ import com.mapbox.geojson.Geometry;
 import com.mapbox.geojson.LineString;
 import com.mapbox.geojson.Point;
 
-public class PathSolver {
+public class PathPlanner {
 
 	// Flight boundaries
 	public static final double LAT_MAX = 55.946233; // latitude
@@ -25,7 +25,7 @@ public class PathSolver {
 	private double[][] distances; // matrix for distances between nodes (weighted graph) TODO explain
 	private ObstacleEvader evader;
 
-	public PathSolver(ArrayList<SensorReading> map, FeatureCollection noFlyZones, int rand_seed) {
+	public PathPlanner(ArrayList<SensorReading> map, FeatureCollection noFlyZones, int rand_seed) {
 		this.map = map;
 		this.noFlyZones = noFlyZones;
 		this.rand_seed = rand_seed;
@@ -49,10 +49,15 @@ public class PathSolver {
 					// TODO unify all the Point classes - maybe make my own
 					var point_i = Point.fromLngLat(map.get(i).lon, map.get(i).lat);
 					var point_j = Point.fromLngLat(map.get(j).lon, map.get(j).lat);
-					if (evader.crossesObstacle(point_i, point_j))
-						distances[i][j] += 1;//evader.evasionDistance(point_i, point_j);
+					var crossedObstacles = evader.crossedObstacles(point_i, point_j);
+					for (var obs : crossedObstacles) {
+						var evd = evader.evasionDistance(point_i, point_j, obs);
+						System.out.print("Evasion distance: ");
+						System.out.println(evd);
+						distances[i][j] += evd;
+					}
 					
-					distances[j][i] = distances[i][j]; // TODO toto sa da urobit aj jednostranne, ale neviem ci treba
+					distances[j][i] = distances[i][j]; // symmetric matrix
 				}
 				
 				// DEBUG
@@ -125,7 +130,7 @@ public class PathSolver {
 		var sequence = new ArrayList<Integer>(); // sequence of sensors to visit, identified by their index in this.map
 		
 		// ALGORITHM goes here
-		// trying: Nearest Insert (O(n^2)), because I am already familiar, and then optimize by 2-opt (O(n^2))
+		// trying: Nearest Insert (O(n^2)), because I am already familiar, and then optimize by 2-opt, swap (O(n^2))
 		
 		var unused = new ArrayList<Integer>(); // so far unused sensors
 		

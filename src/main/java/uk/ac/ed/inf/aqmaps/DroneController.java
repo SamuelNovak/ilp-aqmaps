@@ -12,7 +12,7 @@ public class DroneController {
 		this.readingsMapFilename = readingsMapFilename;
 	}
 
-	public void export(ArrayList<Move> moves) {
+	public void executePathPlan(ArrayList<Move> moves) {
 		
 	}
 
