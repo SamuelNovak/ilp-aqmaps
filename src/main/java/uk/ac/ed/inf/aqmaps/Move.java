@@ -8,8 +8,9 @@ import com.mapbox.geojson.Point;
  */
 public class Move {
 
+	// TODO: needed even?
 	private int direction;
-	private SensorReading sensor; // sensor that the drone should expect to hit after this move
+	private SensorReading sensor;
 	
 	// a Move knows where it's coming from and where it ends up
 	private Point original;

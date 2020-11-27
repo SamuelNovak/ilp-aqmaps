@@ -3,6 +3,7 @@ package uk.ac.ed.inf.aqmaps;
 import java.util.ArrayList;
 
 import com.mapbox.geojson.FeatureCollection;
+import com.mapbox.geojson.Point;
 
 /**
  *
@@ -18,10 +19,10 @@ public class App
         			+ "<randomness-seed> <server-port>");
         	System.exit(1);
         }
-        
+        	
         
         // parse input values
-        final int day, month, year, rand_seed, port;
+        final int day, month, year, port;
         final double start_lat, start_lon;
         
         day       =   Integer.parseInt(args[0]);
@@ -29,13 +30,13 @@ public class App
         year      =   Integer.parseInt(args[2]);
         start_lat = Double.parseDouble(args[3]);
         start_lon = Double.parseDouble(args[4]);
-        rand_seed =   Integer.parseInt(args[5]);
+        // skipping argument 5: this would be the randomness seed (int)
         port      =   Integer.parseInt(args[6]);
         
         
         // setup the map (list of sensor locations; in this stage of development with their readings as well)
-        ArrayList<SensorReading> map;
-        FeatureCollection noFlyZones;
+        final ArrayList<SensorReading> map;
+        final FeatureCollection noFlyZones;
         
         
         // Load data from server
@@ -50,10 +51,10 @@ public class App
 		}
         
         
-        var solver = new PathPlanner(map, noFlyZones, rand_seed);
-        ArrayList<Move> moves = solver.findPath(start_lat, start_lon);
+        var solver = new PathPlanner(map, noFlyZones);
+        ArrayList<Point> waypoints = solver.findPath(start_lat, start_lon);
         
         var mp = new DroneController("flightpath-DD-MM-YYYY.txt", "readings-DD-MM-YYYY.geojson");
-        mp.executePathPlan(moves);
+        mp.executePathPlan(waypoints);
     }
 }

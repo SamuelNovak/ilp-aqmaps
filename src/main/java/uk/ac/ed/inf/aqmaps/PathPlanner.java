@@ -11,32 +11,26 @@ import com.mapbox.geojson.Point;
 public class PathPlanner {
 
 	// Flight boundaries
+	// TODO keywords?
 	public static final double LAT_MAX = 55.946233; // latitude
 	public static final double LAT_MIN = 55.942617;
 	public static final double LON_MAX = -3.184319; // longitude
 	public static final double LON_MIN = -3.192473;
 	public static final double MOVE_LENGTH = 0.0003; // length of EVERY drone step in degrees
+	public static final double SENSOR_READ_MAX_DISTANCE = 0.0002; // maximum distance from a sensor to receive data - the drone has to be STRICTLY closer than this
 	
 	
 	private ArrayList<SensorReading> map;
 	private FeatureCollection noFlyZones;
-	private int rand_seed;
 	
 	private double[][] distances; // matrix for distances between nodes (weighted graph) TODO explain
 	private ObstacleEvader evader;
 
-	public PathPlanner(ArrayList<SensorReading> map, FeatureCollection noFlyZones, int rand_seed) {
+	public PathPlanner(ArrayList<SensorReading> map, FeatureCollection noFlyZones) {
 		this.map = map;
 		this.noFlyZones = noFlyZones;
-		this.rand_seed = rand_seed;
 		
 		evader = new ObstacleEvader(noFlyZones);
-		
-		// DEBUG
-		
-		// var lines = new ArrayList<Feature>();
-		
-		// END DEBUG
 		
 		// Compute the distance matrix
 		distances = new double[33 + 1][33 + 1]; // 33 sensors + 1 starting location
@@ -44,62 +38,39 @@ public class PathPlanner {
 			for (int j = 0; j <= i; j++) {
 				if (i == j) distances[i][j] = 0;
 				else {
-					distances[i][j] = distance(map.get(i), map.get(j));
+					var point_i = map.get(i).toPoint();
+					var point_j = map.get(j).toPoint();
 					
-					// TODO unify all the Point classes - maybe make my own
-					var point_i = Point.fromLngLat(map.get(i).lon, map.get(i).lat);
-					var point_j = Point.fromLngLat(map.get(j).lon, map.get(j).lat);
+					distances[i][j] = distance(point_i, point_j);
+					
+					// include evasion of no fly zones in the distance matrix
 					var crossedObstacles = evader.crossedObstacles(point_i, point_j);
 					for (var obs : crossedObstacles) {
-						var evd = evader.evasionDistance(point_i, point_j, obs);
-						System.out.print("Evasion distance: ");
-						System.out.println(evd);
-						distances[i][j] += evd;
+						distances[i][j] += evader.evasionDistance(point_i, point_j, obs);
 					}
 					
-					distances[j][i] = distances[i][j]; // symmetric matrix
+					// distance matrix is symmetric
+					distances[j][i] = distances[i][j];
 				}
-				
-				// DEBUG
-				/*
-				var pts = new ArrayList<Point>();
-				pts.add(Point.fromLngLat(map.get(i).lon, map.get(i).lat));
-				pts.add(Point.fromLngLat(map.get(j).lon, map.get(j).lat));
-				var ftr = Feature.fromGeometry((Geometry) LineString.fromLngLats(pts));
-				ftr.addStringProperty("stroke", evader.crossesObstacle(pts.get(0), pts.get(1)) ? "#ff00c0" : "#00cc00");
-				lines.add(ftr);
-				*/
-				// END DEBUG
 			}
-		
-		// DEBUG
-		/*
-		lines.addAll(noFlyZones.features());
-		FeatureCollection col = FeatureCollection.fromFeatures(lines);
-		System.out.println(col.toJson());
-		*/
-		// END DEBUG
 	}
 	
-	public static double distance(SensorReading x, SensorReading y) {
-		return Math.hypot(x.lat - y.lat, x.lon - y.lon);
+	public static double distance(Point x, Point y) {
+		return Math.hypot(x.latitude() - y.latitude(), x.longitude() - y.longitude());
 	}
 
-	// Path will be a sequence of directions the drone is to take
-	public ArrayList<Move> findPath(double start_lat, double start_lon) {
-		// TODO: first ordering of nodes
-		// TODO: then optimize for no-flight zones
-		// TODO: use a visibility matrix?
-		// TODO: perturbation?
+	// Path plan will be a sequence of waypoints for the drone
+	// TODO explanation: so in the future the drone can correct for weather etc., now it only knows the general path (but this will include waypoints to help avoid the no fly zones)
+	public ArrayList<Point> findPath(double start_lat, double start_lon) {
 		
 		for (int i = 0; i < 33; i++) { // calculate the distances to the starting location
 			distances[33][i] = Math.hypot(start_lat - map.get(i).lat, start_lon - map.get(i).lon);
 			distances[i][33] = distances[33][i];
 		}
 		
-		var TSP_path = solveTSP(start_lat, start_lon);
+		var TSP_path = solveTSP();
 		
-		// TODO DEBUG
+		// TODO this is DEBUG
 		var pts = new ArrayList<Point>();
 		for (var i : TSP_path) {
 			if (i == 33)
@@ -126,7 +97,7 @@ public class PathPlanner {
 		return null;
 	}
 	
-	private ArrayList<Integer> solveTSP(double start_lat, double start_lon) { // TODO: name
+	private ArrayList<Integer> solveTSP() { // TODO: name
 		var sequence = new ArrayList<Integer>(); // sequence of sensors to visit, identified by their index in this.map
 		
 		// ALGORITHM goes here
@@ -136,23 +107,26 @@ public class PathPlanner {
 		
 		{ // isolating this block so it's clear where the local vars belong
 			var min = distances[0][1]; // TODO possibly put this into a different method?
-			var na = 0; // nearest sensors
-			var nb = 1;
+			// nearest vertices
+			var nearest_a = 0;
+			var nearest_b = 1;
 			for (int i = 1; i < 34; i++) { // finding the nearest pair of sensors
 				for (int j = i + 1; j < 34; j++) {
 					if (distances[i][j] < min) {
 						min = distances[i][j];
-						na = i;
-						nb = j;
+						nearest_a = i;
+						nearest_b = j;
 					}
 				}
 			}
 			
-			sequence.add(na); // start the sequence with the minimum that was found
-			sequence.add(nb);
+			// start the sequence with the minimum that was found
+			sequence.add(nearest_a);
+			sequence.add(nearest_b);
 			
-			for (int i = 0; i < 34; i++) // initialize the set of unused sensors - this will be needed for the nearest insert algorithm
-				if (i != na && i != nb)
+			// initialize the set of unused sensors - this will be needed for the nearest insert algorithm
+			for (int i = 0; i < 34; i++)
+				if (i != nearest_a && i != nearest_b)
 					unused.add(i);
 		}
 		
@@ -160,8 +134,13 @@ public class PathPlanner {
 		
 		while (!unused.isEmpty()) {
 			var min = distances[sequence.get(0)][unused.get(0)];
-			var minu = unused.get(0); // this will hold the unused node that is to be inserted - is nearest to sequence
-			var mini = 0; // this will hold the node in sequence where the nearest insertion was found
+			
+			// this will hold the unused node that is to be inserted - is nearest to sequence
+			var minu = unused.get(0);
+			
+			// this will hold the node in sequence where the nearest insertion was found
+			var mini = 0;
+			
 			// TODO comments: replace sensor with the more generic "node" or "vertex"
 			// find an unused sensor that is nearest to some other sensor which is already in the sequence 
 			for (int i = 0; i < sequence.size(); i++) { // i corresponds to index of a sensor already used in the sequence
@@ -173,6 +152,7 @@ public class PathPlanner {
 					}
 				}
 			}
+			
 			// now need to decide on which side of mini to insert minu - before or after
 			var dist_before = distances[(sequence.size() + mini - 1) % sequence.size()][minu];
 			var dist_after  = distances[(mini + 1) % sequence.size()][minu];
@@ -183,12 +163,12 @@ public class PathPlanner {
 				// insert to sequence[mini + 1 mod size]
 				sequence.add((mini + 1) % sequence.size(), minu);
 			}
-			// remove minu from unused // using cast to object so it actually removes the element, not index
+			
+			// remove minu from unused - using cast to object so it actually removes the element minu itself, not an element at index minu
 			unused.remove((Object) minu);
 		}
 		
 		// TWO-OPT & SWAP
-		for (int trial = 0; trial < 2; trial++) // TODO want this?
 		for (int i = 0; i < 34; i++)
 			for (int j = 0; j < 34; j++) {
 				if (i == j)
@@ -219,42 +199,24 @@ public class PathPlanner {
 					}
 					
 					if (swapped_length < original_length) {
-						// System.out.print("Performing line self-optimization:\n  From ");
-						// for (int lp = 34 + i - 1; lp < 34 + i + 4; lp++)
-						//	   System.out.print(String.format("%d ", sequence.get(lp % 34)));
 						sequence.set(i, vertices_around_i[2]);
 						sequence.set((i+1) % 34, vertices_around_i[1]);
-						// System.out.print("\n  To   ");
-						// for (int lp = 34 + i - 1; lp < 34 + i + 4; lp++)
-						//     System.out.print(String.format("%d ", sequence.get(lp % 34)));
-						// System.out.println();
 					}
 				}
 				
 				// check if swapping them produces a shorter path
-				{
-					/*if (distances[vertices_around_i[1]][vertices_around_j[2]] + distances[vertices_around_i[2]][vertices_around_j[1]] <
-						distances[vertices_around_i[1]][vertices_around_i[2]] + distances[vertices_around_j[1]][vertices_around_i[2]])
-					{
-						System.out.println(String.format("Swapping edges %d, %d", i, j));
-						sequence.set((i + 1) % 34, vertices_around_j[2]);
-						sequence.set((j + 1) % 34, vertices_around_i[2]);
-					}*/
-						
-					// attempt with global path length
+				{						
+					// use global path length (straight line distance)
 					double original_length = 0;
 					for (int k = 0; k < 34; k++)
 						original_length += distances[sequence.get(k)][sequence.get((k+1) % 34)];
 					
+					// create a trial sequence by swapping the endpoints of two edges and compute its global path
 					var trial_seq = new ArrayList<Integer>();
 					for (int k = 0; k < 34; k++)
 						trial_seq.add((int) sequence.get(k));
 					trial_seq.set((i + 1) % 34, vertices_around_j[2]);
 					trial_seq.set((j + 1) % 34, vertices_around_i[2]);
-					
-					// System.out.println(sequence);
-					// System.out.println(trial_seq);
-					// System.out.println();
 					
 					double trial_length = 0;
 					for (int k = 0; k < 34; k++)
@@ -271,8 +233,7 @@ public class PathPlanner {
 		
 		// END ALGORITHM
 		
-		System.out.println(sequence);
-		
+		System.out.println(sequence);		
 		return sequence;
 	}
 

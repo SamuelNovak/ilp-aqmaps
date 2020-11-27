@@ -14,7 +14,6 @@ public class ObstacleEvader {
 	
 	public ObstacleEvader(FeatureCollection noFlyZones) {
 		this.noFlyZones = noFlyZones;
-		// TODO preprocess obstacles - mozno mi treba tazisko?
 	}
 	
 	// TODO this can be done all in one go
@@ -30,21 +29,25 @@ public class ObstacleEvader {
 		return ret;
 	}
 	
-	private static boolean crossesObstacle(Point a1, Point a2, Polygon obstacle) {
-		var points = obstacle.coordinates().get(0); // Getting the 0th element = the external outline (don't care if they have interior holes)
+	private boolean crossesObstacle(Point a1, Point a2, Polygon obstacle) {
+		// Getting the 0th element = the external outline (don't care if they have interior holes)
+		var points = obstacle.coordinates().get(0);
 		
-		for (int i = 0; i < points.size() - 1; i++) { // interate until the second-to-last, than one needs to wrap around and so will be handled separately
+		// Iterate until the second-to-last, the last one needs to wrap around (path is cyclic) and so will be handled separately
+		for (int i = 0; i < points.size() - 1; i++) {
 			if (linesIntersect(a1, a2, points.get(i), points.get(0)))
-				return true; // Found an intersection with a no-fly zone
+				// Found an intersection with a no-fly zone
+				return true;
 		}
 		// Here handle the final line segment
 		if (linesIntersect(a1, a2, points.get(0), points.get(points.size() -1)))
-			return true; // Found an intersection
+			// Found an intersection
+			return true;
 		
 		return false;
 	}
 	
-	private static boolean linesIntersect(Point a1, Point a2, Point b1, Point b2) { // TODO java.awt.geom.Line2D?
+	private boolean linesIntersect(Point a1, Point a2, Point b1, Point b2) { // TODO java.awt.geom.Line2D?
 		Line2D line_a = new Line2D.Double(a1.latitude(), a1.longitude(), a2.latitude(), a2.longitude());
 		Line2D line_b = new Line2D.Double(b1.latitude(), b1.longitude(), b2.latitude(), b2.longitude());
 		return line_a.intersectsLine(line_b);		
@@ -55,7 +58,7 @@ public class ObstacleEvader {
 	 *  This assumes that the lines intersect.
 	 */
 	// TODO maybe make this more efficient?
-	private static Point intersection(Point a1, Point a2, Point b1, Point b2) {
+	private Point intersection(Point a1, Point a2, Point b1, Point b2) {
 		var a1x = a1.longitude();
 		var a1y = a1.latitude();
 		var a2x = a2.longitude();
@@ -73,7 +76,8 @@ public class ObstacleEvader {
 	}
 	
 	// TODO why: want to store intersection along with what it intersects in the polygon
-	private class IntersectionTriPoint { // I really miss being able to create arbitrary tuples on the run
+	// TODO might be unnecessary in the future
+	private class IntersectionTriPoint { // I really miss being able to create arbitrary tuples on the run :(
 		Point b1, b2, intersection;
 		public IntersectionTriPoint(Point b1, Point b2, Point intersection) {
 			this.b1 = b1;
@@ -85,13 +89,16 @@ public class ObstacleEvader {
 	public double evasionDistance(Point a1, Point a2, Polygon obstacle) {
 		var intersections = new ArrayList<IntersectionTriPoint>();
 		
-		var points = obstacle.coordinates().get(0); // Getting the 0th element = the external outline (don't care if they have interior holes)
+		// Getting the 0th element = the external outline (don't care if they have interior holes)
+		var points = obstacle.coordinates().get(0);
 		
-		for (int i = 0; i < points.size() - 1; i++) { // interate until the second-to-last, than one needs to wrap around and so will be handled separately
+		// interate until the second-to-last, the last one needs to wrap around (path is cyclic) and so will be handled separately
+		for (int i = 0; i < points.size() - 1; i++) {
 			if (linesIntersect(a1, a2, points.get(i), points.get(0))) {
 				intersections.add(new IntersectionTriPoint(points.get(i), points.get(0), intersection(a1, a2, points.get(i), points.get(0))));
 			}
 		}
+		
 		// Here handle the final line segment
 		if (linesIntersect(a1, a2, points.get(0), points.get(points.size() -1)))
 			intersections.add(new IntersectionTriPoint(points.get(0), points.get(points.size() -1), intersection(a1, a2, points.get(0), points.get(points.size() -1))));
@@ -110,10 +117,10 @@ public class ObstacleEvader {
 			}
 		}
 		
-		// now go around the obstacle in either direction until point a2 is visible
-		// Note: this ignores any other obstacles that may be in the way
+		// now go around the obstacle in either direction until point a2 is visible via a straight line that doesn't cross obstacles
+		// Note: this ignores any other obstacles that may be in the way, but this is a sufficient heuristic
 		
-		// variables named for positive and negative steps taken when iterating over polygon points
+		// distance when going in positive and negative steps when iterating over polygon points
 		double ev_dist_pos = 0;
 		double ev_dist_neg = 0;
 		

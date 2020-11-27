@@ -2,6 +2,8 @@ package uk.ac.ed.inf.aqmaps;
 
 import java.util.ArrayList;
 
+import com.mapbox.geojson.Point;
+
 public class DroneController {
 
 	private String flightpathFilename;
@@ -12,7 +14,7 @@ public class DroneController {
 		this.readingsMapFilename = readingsMapFilename;
 	}
 
-	public void executePathPlan(ArrayList<Move> moves) {
+	public void executePathPlan(ArrayList<Point> waypoints) {
 		
 	}
 
