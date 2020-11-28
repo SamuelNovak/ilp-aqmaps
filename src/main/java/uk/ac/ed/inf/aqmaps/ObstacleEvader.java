@@ -2,6 +2,7 @@ package uk.ac.ed.inf.aqmaps;
 
 import java.awt.geom.Line2D;
 import java.util.ArrayList;
+import java.util.Collection;
 
 import com.mapbox.geojson.FeatureCollection;
 import com.mapbox.geojson.Point;
@@ -190,6 +191,11 @@ public class ObstacleEvader {
 			return ev_dist_pos;
 		else
 			return ev_dist_neg;
+	}
+
+	public ArrayList<Point> waypointsEvadeObstacle(Point current_point, Point next_point, Polygon obs) {
+		// TODO Auto-generated method stub
+		return new ArrayList<Point>();
 	}
 
 }

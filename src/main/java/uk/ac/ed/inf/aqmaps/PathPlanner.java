@@ -46,7 +46,7 @@ public class PathPlanner {
 					// include evasion of no fly zones in the distance matrix
 					var crossedObstacles = evader.crossedObstacles(point_i, point_j);
 					for (var obs : crossedObstacles) {
-						distances[i][j] += evader.evasionDistance(point_i, point_j, obs);
+						distances[i][j] += 0;//evader.evasionDistance(point_i, point_j, obs);
 					}
 					
 					// distance matrix is symmetric
@@ -63,50 +63,168 @@ public class PathPlanner {
 	// TODO explanation: so in the future the drone can correct for weather etc., now it only knows the general path (but this will include waypoints to help avoid the no fly zones)
 	public ArrayList<Point> findPath(double start_lat, double start_lon) {
 		
-		for (int i = 0; i < 33; i++) { // calculate the distances to the starting location
+		// calculate the distances to the starting location - vertex at index 33
+		for (int i = 0; i < 33; i++) {
 			distances[33][i] = Math.hypot(start_lat - map.get(i).lat, start_lon - map.get(i).lon);
 			distances[i][33] = distances[33][i];
 		}
 		
-		var TSP_path = solveTSP();
+		// generate a high-level flight plan - sequence of vertices (sensors) in a good order to visit them
+		var tsp_sequence = solveTSP();
+
+		var waypoints = new ArrayList<Point>();
+		
+		for (int i = 0; i < 34; i++) {
+			Point current_point, next_point;
+			
+			if (i == 0) {
+				// starting point (vertex 33)
+				current_point = Point.fromLngLat(start_lon, start_lat);
+				next_point = map.get(tsp_sequence.get(i+1)).toPoint(); // writing i+1 explicitly for clarity
+			} else if (i == 33) {
+				// we are at the last vertex, need to go back
+				current_point = map.get(tsp_sequence.get(i)).toPoint();
+				next_point = Point.fromLngLat(start_lon, start_lat);
+			} else {
+				current_point = map.get(tsp_sequence.get(i)).toPoint();
+				next_point = map.get(tsp_sequence.get(i + 1)).toPoint();
+			}
+			
+			waypoints.add(current_point);
+
+			var obstacles = evader.crossedObstacles(current_point, next_point);
+			if (!obstacles.isEmpty()) {
+				System.out.println("Need to avoid");
+				// TODO evasion algorithm
+				// done by the evader
+				for (var obs : obstacles) {
+					waypoints.addAll(evader.waypointsEvadeObstacle(current_point, next_point, obs));
+				}
+			}
+			
+			// TODO don't deal with angles here because that will be drone's job (and done by drone so it can in the *future* deal with wind)
+			
+			// calculate the angle (from conventional 0 being the +x = increasing longitude)
+			// also we want this angle to be positive (hence the +360 mod 360)
+			var delta_lon = next_point.longitude() - current_point.longitude();
+			var delta_lat = next_point.latitude() - current_point.latitude();
+			var theta = (Math.toDegrees(Math.atan2(delta_lat, delta_lon)) + 360) % 360;
+			
+			// get angle that is the nearest multiple of 10 degrees
+			var phi = 10 * Math.round(theta / 10);
+			
+			// check if the direction of travel needed is already allowed
+			if (theta != phi) {				
+				// calculate the midpoint so that the path can be split into two paths of allowed angles
+				var sigma = theta - phi;
+				var dist = Math.hypot(delta_lon, delta_lat);
+				
+				var move_in_phi = dist * Math.cos(Math.toRadians(sigma));
+				// var move_in_
+				var new_delta_lon = move_in_phi * Math.cos(Math.toRadians(phi));
+				var new_delta_lat = move_in_phi * Math.sin(Math.toRadians(phi));
+				
+				waypoints.add(Point.fromLngLat(current_point.longitude() + new_delta_lon, current_point.latitude() + new_delta_lat));
+			
+			}
+			
+			
+			System.out.println(theta);
+			System.out.println(phi);
+		}
+		
 		
 		// TODO this is DEBUG
-		var pts = new ArrayList<Point>();
-		for (var i : TSP_path) {
-			if (i == 33)
-				pts.add(Point.fromLngLat(start_lon, start_lat));
-			else
-				pts.add(Point.fromLngLat(map.get(i).lon, map.get(i).lat));
-		}
 		{
-			var i = TSP_path.get(0);
-			if (i == 33)
-				pts.add(Point.fromLngLat(start_lon, start_lat));
-			else
-				pts.add(Point.fromLngLat(map.get(i).lon, map.get(i).lat));
+			var pts = new ArrayList<Point>();
+			var ftrs = new ArrayList<Feature>();
+			for (var i : tsp_sequence) {
+				if (i == 33)
+					pts.add(Point.fromLngLat(start_lon, start_lat));
+				else
+					pts.add(Point.fromLngLat(map.get(i).lon, map.get(i).lat));
+				
+				var pt_marker = Feature.fromGeometry(pts.get(pts.size() - 1));
+				pt_marker.addNumberProperty("Vertex id", i);
+				ftrs.add(pt_marker);
+			}
+			{
+				var i = tsp_sequence.get(0);
+				if (i == 33)
+					pts.add(Point.fromLngLat(start_lon, start_lat));
+				else
+					pts.add(Point.fromLngLat(map.get(i).lon, map.get(i).lat));
+			}
+			var ftr = Feature.fromGeometry((Geometry) LineString.fromLngLats(pts));
+
+			ftrs.addAll(noFlyZones.features());
+			ftrs.add(ftr);
+			FeatureCollection col = FeatureCollection.fromFeatures(ftrs);
+			System.out.println(col.toJson());
 		}
-		var ftr = Feature.fromGeometry((Geometry) LineString.fromLngLats(pts));
-		
-		var ftrs = new ArrayList<Feature>();
-		ftrs.addAll(noFlyZones.features());
-		ftrs.add(ftr);
-		FeatureCollection col = FeatureCollection.fromFeatures(ftrs);
-		System.out.println(col.toJson());
 		// END DEBUG
 		
 		return null;
 	}
 	
+	/** Generate a heuristically good sequence of vertices (sensors) to visit - Travelling Salesperson Problem
+	 * @return Sequence of vertices identified by their index in this.map.
+	 * Guaranteed to start with vertex 33 (the starting point).
+	 */
 	private ArrayList<Integer> solveTSP() { // TODO: name
-		var sequence = new ArrayList<Integer>(); // sequence of sensors to visit, identified by their index in this.map
 		
-		// ALGORITHM goes here
-		// trying: Nearest Insert (O(n^2)), because I am already familiar, and then optimize by 2-opt, swap (O(n^2))
+		// get initial sequence of vertices from Nearest Insert
+		var sequence = nearestInsert();
+
+		// optimize the obtained sequence by Swap + 2-Opt (in place)
+		swap2opt(sequence);
+
+		// need to rotate the sequence (i.e. cyclical shift) so that it starts at the starting location (vertex number 33)
+		{
+			int initial_vertex_index = 0;
+			for (int i = 0; i < 34; i++) {
+				if (sequence.get(i) == 33) {
+					initial_vertex_index = i;
+					break;
+				}
+			}
+			
+			var rotated_sequence = new ArrayList<Integer>();
+			for (int i = 0; i < 34; i++)
+				rotated_sequence.add(sequence.get((i + initial_vertex_index) % 34));
+			
+			sequence = rotated_sequence;
+		}
 		
-		var unused = new ArrayList<Integer>(); // so far unused sensors
+		// TODO remove print
+		System.out.println(sequence);
 		
-		{ // isolating this block so it's clear where the local vars belong
-			var min = distances[0][1]; // TODO possibly put this into a different method?
+		{
+			double total_distance = 0;
+			for (int i = 0; i < 34; i++) {
+				total_distance += distances[sequence.get(i)][sequence.get((i+1) % 34)];
+			}
+			System.out.print("Total TSP distance: ");
+			System.out.println(total_distance);
+		}
+		
+		return sequence;
+	}
+	
+	/** Generate a TSP circuit (as a sequence of vertices) using the Nearest Insert heuristic
+	 * @return Sequence of vertices identified by their index in this.map
+	 */
+	private ArrayList<Integer> nearestInsert() {
+		// sequence of sensors to visit, identified by their index in this.map
+		var sequence = new ArrayList<Integer>();
+		
+		// so far unused sensors
+		var unused = new ArrayList<Integer>();
+		
+		// find the first two vertices to connect
+		// isolating this block so it's clear where the local vars belong
+		{
+			var min = distances[0][1];
 			// nearest vertices
 			var nearest_a = 0;
 			var nearest_b = 1;
@@ -130,8 +248,7 @@ public class PathPlanner {
 					unused.add(i);
 		}
 		
-		// NEAREST INSERT
-		
+		// expand the TSP cycle with the nearest vertices, until all of them are used
 		while (!unused.isEmpty()) {
 			var min = distances[sequence.get(0)][unused.get(0)];
 			
@@ -168,7 +285,15 @@ public class PathPlanner {
 			unused.remove((Object) minu);
 		}
 		
-		// TWO-OPT & SWAP
+		return sequence;
+	}
+	
+	
+	/** Method to optimize an existing TSP circuit using a mixed Swap & 2-Opt heuristics - done in place
+	 * @param sequence An existing TSP circuit - sequence of vertex ids (indices in this.map)
+	 */
+	// TODO: pokec o tom, ze z pokusov sa zda, ze takto ich zmiesat je lepsie
+	private void swap2opt(ArrayList<Integer> sequence) {
 		for (int i = 0; i < 34; i++)
 			for (int j = 0; j < 34; j++) {
 				if (i == j)
@@ -202,7 +327,7 @@ public class PathPlanner {
 						sequence.set(i, vertices_around_i[2]);
 						sequence.set((i+1) % 34, vertices_around_i[1]);
 					}
-				}
+				}				
 				
 				// check if swapping them produces a shorter path
 				{						
@@ -229,12 +354,6 @@ public class PathPlanner {
 					}
 				}
 			}
-		
-		
-		// END ALGORITHM
-		
-		System.out.println(sequence);		
-		return sequence;
 	}
 
 }
