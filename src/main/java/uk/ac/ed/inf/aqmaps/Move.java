@@ -3,27 +3,24 @@ package uk.ac.ed.inf.aqmaps;
 import com.mapbox.geojson.Point;
 
 /**
- * An abstract representation of a move that a drone can make.
+ * An abstract representation of a move that the drone makes.
  *
  */
 public class Move {
 
-	// TODO: needed even?
-	private int direction;
-	private SensorReading sensor;
-	
 	// a Move knows where it's coming from and where it ends up
-	private Point original;
-	private Point next;
+	private final Point original;
+	private final Point next;
+	// the direction of motion as a multiple of 10 degrees
+	private final int direction;
+	// representation of the (potential) sensor reading
+	private final SensorReading sensor;
 	
-	public Move(Point original, int direction, SensorReading sensor) {
+	public Move(Point original, int direction, Point next, SensorReading sensor) {
 		this.original = original;
+		this.next = next;
 		this.direction = direction;
 		this.sensor = sensor;
-		
-		var new_lon = original.longitude() + PathPlanner.MOVE_LENGTH * Math.cos(Math.toRadians((double) direction));
-		var new_lat = original.latitude() + PathPlanner.MOVE_LENGTH * Math.sin(Math.toRadians((double) direction));
-		next = Point.fromLngLat(new_lon, new_lat);
 	}
 
 	public int getDirection() {
@@ -40,5 +37,13 @@ public class Move {
 
 	public Point getNext() {
 		return next;
+	}
+	
+	public String serialize(int move_number) {
+		// format: {move number},{original longitude},{original latitude},{direction},{next longitude},{next latitude},{sensor location W3W}
+		return String.format("%d,%f,%f,%d,%f,%f,%s\n",
+				move_number, original.longitude(), original.latitude(), 
+				direction, next.longitude(), next.latitude(),
+				sensor == null ? "null" : sensor.location);
 	}
 }

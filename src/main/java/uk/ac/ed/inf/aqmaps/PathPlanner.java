@@ -9,16 +9,6 @@ import com.mapbox.geojson.LineString;
 import com.mapbox.geojson.Point;
 
 public class PathPlanner {
-
-	// Flight boundaries
-	// TODO keywords?
-	public static final double LAT_MAX = 55.946233; // latitude
-	public static final double LAT_MIN = 55.942617;
-	public static final double LON_MAX = -3.184319; // longitude
-	public static final double LON_MIN = -3.192473;
-	public static final double MOVE_LENGTH = 0.0003; // length of EVERY drone step in degrees
-	public static final double SENSOR_READ_MAX_DISTANCE = 0.0002; // maximum distance from a sensor to receive data - the drone has to be STRICTLY closer than this
-	
 	
 	private ArrayList<SensorReading> map;
 	private FeatureCollection noFlyZones;
@@ -26,14 +16,14 @@ public class PathPlanner {
 	private double[][] distances; // matrix for distances between nodes (weighted graph) TODO explain
 	private ObstacleEvader evader;
 
-	public PathPlanner(ArrayList<SensorReading> map, FeatureCollection noFlyZones) {
+	public PathPlanner(ArrayList<SensorReading> map, FeatureCollection noFlyZones) {		
 		this.map = map;
 		this.noFlyZones = noFlyZones;
 		
 		evader = new ObstacleEvader(noFlyZones);
 		
 		// Compute the distance matrix
-		distances = new double[33 + 1][33 + 1]; // 33 sensors + 1 starting location
+		distances = new double[33 + 1][33 + 1]; // 33 sensors + 1 starting location // TODO number of sensors
 		for (int i = 0; i < 33; i++)
 			for (int j = 0; j <= i; j++) {
 				if (i == j) distances[i][j] = 0;
@@ -46,7 +36,7 @@ public class PathPlanner {
 					// include evasion of no fly zones in the distance matrix
 					var crossedObstacles = evader.crossedObstacles(point_i, point_j);
 					for (var obs : crossedObstacles) {
-						distances[i][j] += 0;//evader.evasionDistance(point_i, point_j, obs);
+						distances[i][j] += 0;//evader.evasionDistance(point_i, point_j, obs); TODO
 					}
 					
 					// distance matrix is symmetric
@@ -97,41 +87,12 @@ public class PathPlanner {
 				System.out.println("Need to avoid");
 				// TODO evasion algorithm
 				// done by the evader
-				for (var obs : obstacles) {
-					waypoints.addAll(evader.waypointsEvadeObstacle(current_point, next_point, obs));
-				}
+				waypoints.addAll(evader.waypointsToAvoidObstacles(current_point, next_point));
 			}
-			
-			// TODO don't deal with angles here because that will be drone's job (and done by drone so it can in the *future* deal with wind)
-			
-			// calculate the angle (from conventional 0 being the +x = increasing longitude)
-			// also we want this angle to be positive (hence the +360 mod 360)
-			var delta_lon = next_point.longitude() - current_point.longitude();
-			var delta_lat = next_point.latitude() - current_point.latitude();
-			var theta = (Math.toDegrees(Math.atan2(delta_lat, delta_lon)) + 360) % 360;
-			
-			// get angle that is the nearest multiple of 10 degrees
-			var phi = 10 * Math.round(theta / 10);
-			
-			// check if the direction of travel needed is already allowed
-			if (theta != phi) {				
-				// calculate the midpoint so that the path can be split into two paths of allowed angles
-				var sigma = theta - phi;
-				var dist = Math.hypot(delta_lon, delta_lat);
-				
-				var move_in_phi = dist * Math.cos(Math.toRadians(sigma));
-				// var move_in_
-				var new_delta_lon = move_in_phi * Math.cos(Math.toRadians(phi));
-				var new_delta_lat = move_in_phi * Math.sin(Math.toRadians(phi));
-				
-				waypoints.add(Point.fromLngLat(current_point.longitude() + new_delta_lon, current_point.latitude() + new_delta_lat));
-			
-			}
-			
-			
-			System.out.println(theta);
-			System.out.println(phi);
 		}
+		
+		// TODO loop back
+		waypoints.add(waypoints.get(0));
 		
 		
 		// TODO this is DEBUG
@@ -164,7 +125,7 @@ public class PathPlanner {
 		}
 		// END DEBUG
 		
-		return null;
+		return waypoints;
 	}
 	
 	/** Generate a heuristically good sequence of vertices (sensors) to visit - Travelling Salesperson Problem

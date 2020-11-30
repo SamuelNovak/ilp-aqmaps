@@ -2,7 +2,6 @@ package uk.ac.ed.inf.aqmaps;
 
 import java.awt.geom.Line2D;
 import java.util.ArrayList;
-import java.util.Collection;
 
 import com.mapbox.geojson.FeatureCollection;
 import com.mapbox.geojson.Point;
@@ -48,7 +47,7 @@ public class ObstacleEvader {
 		return false;
 	}
 	
-	private boolean linesIntersect(Point a1, Point a2, Point b1, Point b2) { // TODO java.awt.geom.Line2D?
+	private boolean linesIntersect(Point a1, Point a2, Point b1, Point b2) {
 		Line2D line_a = new Line2D.Double(a1.latitude(), a1.longitude(), a2.latitude(), a2.longitude());
 		Line2D line_b = new Line2D.Double(b1.latitude(), b1.longitude(), b2.latitude(), b2.longitude());
 		return line_a.intersectsLine(line_b);		
@@ -193,9 +192,12 @@ public class ObstacleEvader {
 			return ev_dist_neg;
 	}
 
-	public ArrayList<Point> waypointsEvadeObstacle(Point current_point, Point next_point, Polygon obs) {
-		// TODO Auto-generated method stub
-		return new ArrayList<Point>();
+	public ArrayList<Point> waypointsToAvoidObstacles(Point current_point, Point next_point) {
+		var waypoints = new ArrayList<Point>();
+		
+		
+		
+		return waypoints;
 	}
 
 }

@@ -35,14 +35,14 @@ public class App
         
         
         // setup the map (list of sensor locations; in this stage of development with their readings as well)
-        final ArrayList<SensorReading> map;
+        final ArrayList<SensorReading> sensorMap;
         final FeatureCollection noFlyZones;
         
         
         // Load data from server
         var client = new WebClient(port);
         try {
-			map = client.loadMap(year, month, day);
+			sensorMap = client.loadMap(year, month, day);
 			noFlyZones = client.loadNoFlyZones();
 		} catch (WebClientException e) {
 			e.printStackTrace();
@@ -51,10 +51,18 @@ public class App
 		}
         
         
-        var solver = new PathPlanner(map, noFlyZones);
+        var solver = new PathPlanner(sensorMap, noFlyZones);
         ArrayList<Point> waypoints = solver.findPath(start_lat, start_lon);
         
-        var mp = new DroneController("flightpath-DD-MM-YYYY.txt", "readings-DD-MM-YYYY.geojson");
+        var date_string = formatDateDMY(day, month, year);
+        
+        // set up Drone Controller and fly the drone
+        var mp = new DroneController(sensorMap, "flightpath-" + date_string + ".txt", "readings-" + date_string +  ".geojson");
         mp.executePathPlan(waypoints);
+    }
+    
+    private static String formatDateDMY(int day, int month, int year) {
+    	// format code %0Nd inserts an integer padded with N zeros
+    	return String.format("%02d-%02d-%04d", day, month, year);
     }
 }
