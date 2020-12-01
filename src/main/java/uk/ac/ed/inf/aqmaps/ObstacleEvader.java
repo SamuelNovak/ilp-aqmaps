@@ -58,7 +58,6 @@ public class ObstacleEvader {
 	
 	/** Computes the point of intersection of the two lines
 	 */
-	// TODO maybe make this more efficient?
 	private Point intersection(Point a1, Point a2, Point b1, Point b2) {
 		var a1x = a1.longitude();
 		var a1y = a1.latitude();
@@ -222,8 +221,121 @@ public class ObstacleEvader {
 		// call self with this avoided obstacle in clearedObstacles
 		// recursive run won't care about the clearedObstacles anymore - speedup
 		
+		var nearestIntersectingObstacle = findNearestIntersectingObstacle(origin_point, next_point);
+		
+		if (nearestIntersectingObstacle == null) {
+			// no intersecting obstacles in the way
+			return new ArrayList<Point>();
+		}
+		
+		// intersection found - continue
+		
+		Point nearestIntersection = nearestIntersectingObstacle.left;
+		Polygon nearestPolygon = nearestIntersectingObstacle.right;
+		
+		// now get a waypoint to avoid this newfound nearest obstacle
+		// TODO comments (but will be explained in report)
+		
+		
+		// find the possible waypoints - intersections of lines: 
+		// - from origin_point at theta_max and from next_point at phi_min
+		// - from origin_point at theta_min and from next_point at phi_max
+		// use the 2 * original distance between origin and next as length of each line
+		
+		// TODO this whole thing has to change, bc potential waypoints can be out of bounds
+		// TODO follow points (as before) instead
+		//      also maybe contruct convex hulls - NOPE won't work
+		
+		// SOLN: use min-max angles, but no intersection from the other side, just go to the obstacle vertex
+		
+		var waypoints = waypointsToAvoidSingleObstacle(origin_point, next_point, nearestPolygon, 0);
+		clearedObstacles.add(nearestPolygon);
+		waypoints.addAll(waypointsToAvoidRemainingObstacles(waypoints.get(waypoints.size() - 1), next_point, clearedObstacles));
+		return waypoints;
+	}
+	
+	/** Calculate waypoints around a particular obstacle, with possibility of specifying the preferred direction
+	 * @param origin_point
+	 * @param next_point
+	 * @param obstacle
+	 * @param preferredDirection TODO use an enum?
+	 * 		  0 go both ways, +1 positive (counterclockwise), -1 negative (clockwise)
+	 * @return
+	 */
+	private ArrayList<Point> waypointsToAvoidSingleObstacle(Point origin_point, Point next_point, Polygon obstacle, int preferredDirection) {
+		
+		// base case
+		if (!crossesObstacle(origin_point, next_point, obstacle))
+			return new ArrayList<Point>();
+		
+		// get points of the nearest obstacle polygon (index 0, want exterior)
+		var points = obstacle.coordinates().get(0);
+		
+		// some initial point (which has to exist) so we can initialize the angles
+		var pt0 = points.get(0);
+		
+		// angles from origin_point
+		// TODO function for angles
+		var theta_min = Math.toDegrees(Math.atan2(pt0.latitude() - origin_point.latitude(), pt0.longitude() - origin_point.longitude()));
+		var theta_min_pt = pt0;
+		
+		var theta_max = theta_min;
+		var theta_max_pt = pt0;
+		
+		// assuming it's a valid polygon - has at least 3 points
+		for (int i = 1; i < points.size(); i++) {
+			var pt = points.get(i);
+			var theta = Math.toDegrees(Math.atan2(pt.latitude() - origin_point.latitude(), pt.longitude() - origin_point.longitude()));
+			
+			if (theta > theta_max) {
+				theta_max = theta;
+				theta_max_pt = pt;
+			}
+			if (theta < theta_min) { // TODO together? they should not coincide in a valid polygon
+				theta_min = theta;
+				theta_min_pt = pt;
+			}
+		}
+		
+		// round up or down to allowed angles to get better avoidance
+		theta_min = 10 * Math.floor(theta_min / 10);
+		theta_max = 10 * Math.ceil(theta_max / 10);
+		
+		// TODO NEED TO OFFSET THEM POINTS A LIL!
+		
+		// possible waypoints
+		var waypoints_pos = new ArrayList<Point>();
+		if (preferredDirection >= 0) {
+			// generate a waypoint by aligning the theta_max_point to larger allowed angle TODO
+			waypoints_pos.add(abcdefgh(origin_point, PathPlanner.distance(origin_point, theta_max_pt), theta_max));
+			// now calculate the next steps
+			waypoints_pos.addAll(waypointsToAvoidSingleObstacle(waypoints_pos.get(0), next_point, obstacle, +1));
+		}
+			
+		// same for other direction
+		var waypoints_neg = new ArrayList<Point>();
+		if (preferredDirection <= 0) {
+			waypoints_neg.add(abcdefgh(origin_point, PathPlanner.distance(origin_point, theta_min_pt), theta_min));
+			// now calculate the next steps
+			waypoints_neg.addAll(waypointsToAvoidSingleObstacle(waypoints_neg.get(0), next_point, obstacle, -1));
+		}
+		
+		if (preferredDirection == 0) {
+			// need to decide which one is shorter
+			if (pathLength(waypoints_pos) < pathLength(waypoints_neg))
+				return waypoints_pos;
+			else
+				return waypoints_neg;
+		} else if (preferredDirection == -1)
+			return waypoints_neg;
+		else
+			return waypoints_pos;
+	}
+	
+	private Pair<Point, Polygon> findNearestIntersectingObstacle(Point origin_point, Point next_point) {
 		Point nearestIntersection = null;
 		Polygon nearestPolygon = null;
+		
 		// -1 used because no distance will ever be < 0
 		double min_distance = -1;
 		
@@ -254,78 +366,12 @@ public class ObstacleEvader {
 			}
 		}
 		
-		// now get a waypoint to avoid this newfound nearest obstacle
-		// TODO comments (but will be explained in report)
-		
-		// get points of the nearest obstacle polygon (index 0, want exterior)
-		var points = nearestPolygon.coordinates().get(0);
-		
-		// just so we can initialize the angles
-		var pt0 = points.get(0);
-		
-		// angles from origin_point
-		// TODO function for angles
-		var theta_min = Math.toDegrees(Math.atan2(pt0.latitude() - origin_point.latitude(), pt0.longitude() - origin_point.longitude()));
-		var theta_max = theta_min;
-		
-		// angles from the target point
-		var phi_min = Math.toDegrees(Math.atan2(pt0.latitude() - next_point.latitude(), pt0.longitude() - next_point.longitude()));
-		var phi_max = phi_min;
-		
-		// assuming it's a valid polygon - has at least 3 points
-		for (int i = 1; i < points.size(); i++) {
-			var pt = points.get(i);
-			var theta = Math.toDegrees(Math.atan2(pt.latitude() - origin_point.latitude(), pt.longitude() - origin_point.longitude()));
-			var phi = Math.toDegrees(Math.atan2(pt.latitude() - next_point.latitude(), pt.longitude() - next_point.longitude()));
-			
-			if (theta > theta_max)
-				theta_max = theta;
-			if (theta < theta_min) // TODO together?
-				theta_min = theta;
-			
-			if (phi > phi_max)
-				phi_max = phi;
-			if (phi < phi_min)
-				phi_min = phi;
-		}
-		
-		// round up or down to allowed angles to get better avoidance
-		theta_min = 10 * Math.floor(theta_min / 10);
-		theta_max = 10 * Math.ceil(theta_max / 10);
-		phi_min = 10 * Math.floor(phi_min / 10);
-		phi_max = 10 * Math.ceil(phi_max / 10);
-		
-		// find the possible waypoints - intersections of lines: 
-		// - from origin_point at theta_max and from next_point at phi_min
-		// - from origin_point at theta_min and from next_point at phi_max
-		// use the 2 * original distance between origin and next as length of each line
-		
-		// TODO this whole thing has to change, bc potential waypoints can be out of bounds 
-		
-		var dist = 2 * PathPlanner.distance(origin_point, next_point);
-
-		var origin_to_theta_max = abcdefgh(origin_point, dist, theta_max);
-		var origin_to_theta_min = abcdefgh(origin_point, dist, theta_min);
-		
-		var next_to_phi_max = abcdefgh(next_point, dist, phi_max);
-		var next_to_phi_min = abcdefgh(next_point, dist, phi_min);
-		
-		var waypoint_left = intersection(origin_point, origin_to_theta_max, next_point, next_to_phi_min);
-		var waypoint_right = intersection(origin_point, origin_to_theta_min, next_point, next_to_phi_max);
-		
-		if (waypoint_left == null) {
-			System.out.println("waypoint_left null!!!"); // TODO should NOT happen!
-			if (waypoint_right == null) {
-				System.out.println("PANIC! Both waypoints null!!!");
-			}
-		}
-		if (waypoint_right == null) {
-			System.out.println("waypoint_right null!!!");
-		}
-		
-		return new ArrayList<Point>();
+		if (min_distance > -1)
+			return new Pair<Point, Polygon>(nearestIntersection, nearestPolygon);
+		else
+			// no intersecting obstacle found
+			return null;
 	}
-	
 	
 	private Point abcdefgh(Point origin, double length, double angle) { // TODO name srsly
 		var longitude = origin.longitude();
@@ -334,6 +380,13 @@ public class ObstacleEvader {
 		var rot_longitude = longitude + length * Math.cos(Math.toRadians(angle));
 		var rot_latitude = latitude + length * Math.sin(Math.toRadians(angle));
 		return Point.fromLngLat(rot_longitude, rot_latitude);
+	}
+	
+	private double pathLength(ArrayList<Point> path) {
+		double length = 0;
+		for (int i = 0; i < path.size() - 1; i++)
+			length += PathPlanner.distance(path.get(i), path.get(i+1));
+		return length;
 	}
 
 }

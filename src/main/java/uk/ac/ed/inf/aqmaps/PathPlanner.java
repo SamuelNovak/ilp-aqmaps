@@ -67,6 +67,7 @@ public class PathPlanner {
 		for (int i = 0; i < 34; i++) {
 			Point current_point, next_point;
 			
+			// assign the corrent current and next points - take into account that one point might be the starting point (not in this.map)
 			if (i == 0) {
 				// starting point (vertex 33)
 				current_point = Point.fromLngLat(start_lon, start_lat);
@@ -92,7 +93,7 @@ public class PathPlanner {
 		}
 		
 		// TODO loop back
-		waypoints.add(waypoints.get(0));
+		// waypoints.add(waypoints.get(0)); already done above I think?
 		
 		
 		// TODO this is DEBUG
