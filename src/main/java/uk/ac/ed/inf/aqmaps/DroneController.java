@@ -36,7 +36,7 @@ public class DroneController {
 		this.readingsMapFilename = readingsMapFilename;
 	}
 
-	public void executePathPlan(ArrayList<Point> waypoints) {
+	public void executePathPlan(ArrayList<Point> waypoints, FeatureCollection noFlyZones) {
 		trajectory = new ArrayList<Move>();
 		
 		var start = waypoints.get(0);
@@ -46,8 +46,6 @@ public class DroneController {
 		for (int i = 1; i < waypoints.size(); i++) {
 			// starting at i = 1, because waypoint number 0 is the starting location
 			var target = waypoints.get(i);
-			
-			// TODO battery!!
 			
 			// approach the target
 			// will try to get close to the target, as it could be a sensor
@@ -62,6 +60,7 @@ public class DroneController {
 				var next_latitude = latitude + MOVE_LENGTH * Math.sin(Math.toRadians(phi));
 				
 				// check if there is a sensor there
+				// TODO copy the sensor reading into an internal place
 				SensorReading sensor = null;
 				for (var s : sensors) {
 					if (droneDistance(s) < SENSOR_READ_MAX_DISTANCE) {
@@ -77,11 +76,21 @@ public class DroneController {
 				longitude = next_longitude;
 				latitude = next_latitude;
 				battery -= 1;
+				
+				// if battery is depleted after this move, drone has to stop
+				if (battery == 0)
+					break;
+			}
+			
+			// if battery is depleted, drone has to stop
+			if (battery == 0) {
+				System.out.println(String.format("Drone battery depleted when navigating to waypoint %d out of %d.", i, waypoints.size()));
+				break;
 			}
 		}
 		
 		System.out.println("Battery: " + Integer.toString(battery));
-		serializeTrajectory();
+		serializeTrajectory(waypoints, noFlyZones);
 	}
 
 	private double droneDistance(Point pt) {
@@ -92,7 +101,8 @@ public class DroneController {
 		return Math.hypot(sensor.lon - longitude, sensor.lat - latitude);
 	}
 	
-	private void serializeTrajectory() { // TODO name
+	private void serializeTrajectory(ArrayList<Point> waypoints, FeatureCollection noFlyZones) { // TODO name
+		@SuppressWarnings("unchecked") // TODO allowed?
 		var unused_sensors = (ArrayList<SensorReading>) sensors.clone();
 		
 		
@@ -118,10 +128,11 @@ public class DroneController {
 				
 				var sensor = move.getSensor();
 				if (sensor != null) {
-					var marker = Feature.fromGeometry(sensor.toPoint());
-					// TODO actual properties
-					marker.addStringProperty("marker-color", "#cc0000");
-					features.add(marker);
+					if (!unused_sensors.contains(sensor))
+						// do not want the same sensor on the map multiple times
+						continue;
+					
+					features.add(createMarker(sensor, true));
 					unused_sensors.remove(sensor);
 				}
 				
@@ -129,14 +140,15 @@ public class DroneController {
 			
 			// end point of last move
 			points.add(trajectory.get(trajectory.size() - 1).getNext());
+		
+			for (var sensor : unused_sensors)
+				features.add(createMarker(sensor, false));
 			
-			for (var sensor : unused_sensors) {
-				var marker = Feature.fromGeometry(sensor.toPoint());
-				marker.addStringProperty("marker-color", "#aaaaaa");
-				features.add(marker);
-			}
-			
+			// create LineString = the drone's trajectory
 			features.add(Feature.fromGeometry(LineString.fromLngLats(points)));
+			
+			features.addAll(noFlyZones.features()); // TODO debug
+			
 			var collection = FeatureCollection.fromFeatures(features);
 			
 			readingsWriter.write(collection.toJson());
@@ -148,5 +160,27 @@ public class DroneController {
 			// if the file could not be created or written
 			e.printStackTrace();
 		}
+	}
+	
+	private Feature createMarker(SensorReading sensor, boolean visited) {
+		var marker = Feature.fromGeometry(sensor.toPoint());
+		
+		// compute marker properties
+		Pair<ColoursSymbols.Colour, ColoursSymbols.Symbol> properties;
+		if (visited)
+			properties = ColoursSymbols.getColourSymbol(sensor.reading, sensor.battery);
+		else
+			properties = ColoursSymbols.getNotVisited();
+		
+		var colour = properties.left;
+		var symbol = properties.right;
+		
+		// assign marker properties and store marker
+		marker.addStringProperty("location", sensor.location);
+		marker.addStringProperty("rgb-string", colour.getValue());
+		marker.addStringProperty("marker-color", colour.getValue());
+		marker.addStringProperty("marker-symbol", symbol.getValue());
+		
+		return marker;
 	}
 }

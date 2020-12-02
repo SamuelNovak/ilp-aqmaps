@@ -242,10 +242,6 @@ public class ObstacleEvader {
 		// - from origin_point at theta_min and from next_point at phi_max
 		// use the 2 * original distance between origin and next as length of each line
 		
-		// TODO this whole thing has to change, bc potential waypoints can be out of bounds
-		// TODO follow points (as before) instead
-		//      also maybe contruct convex hulls - NOPE won't work
-		
 		// SOLN: use min-max angles, but no intersection from the other side, just go to the obstacle vertex
 		
 		var waypoints = waypointsToAvoidSingleObstacle(origin_point, next_point, nearestPolygon, 0);
@@ -307,7 +303,7 @@ public class ObstacleEvader {
 		var waypoints_pos = new ArrayList<Point>();
 		if (preferredDirection >= 0) {
 			// generate a waypoint by aligning the theta_max_point to larger allowed angle TODO
-			waypoints_pos.add(abcdefgh(origin_point, PathPlanner.distance(origin_point, theta_max_pt), theta_max));
+			waypoints_pos.add(abcdefgh(origin_point, PathPlanner.distance(origin_point, theta_max_pt), theta_max + 10));
 			// now calculate the next steps
 			waypoints_pos.addAll(waypointsToAvoidSingleObstacle(waypoints_pos.get(0), next_point, obstacle, +1));
 		}
@@ -315,7 +311,7 @@ public class ObstacleEvader {
 		// same for other direction
 		var waypoints_neg = new ArrayList<Point>();
 		if (preferredDirection <= 0) {
-			waypoints_neg.add(abcdefgh(origin_point, PathPlanner.distance(origin_point, theta_min_pt), theta_min));
+			waypoints_neg.add(abcdefgh(origin_point, PathPlanner.distance(origin_point, theta_min_pt), theta_min - 10));
 			// now calculate the next steps
 			waypoints_neg.addAll(waypointsToAvoidSingleObstacle(waypoints_neg.get(0), next_point, obstacle, -1));
 		}
@@ -332,6 +328,11 @@ public class ObstacleEvader {
 			return waypoints_pos;
 	}
 	
+	/** Find the nearest intersection and the obstacle polygon it belongs to.
+	 * @param origin_point
+	 * @param next_point
+	 * @return Pair of intersection Point and its Polygon
+	 */
 	private Pair<Point, Polygon> findNearestIntersectingObstacle(Point origin_point, Point next_point) {
 		Point nearestIntersection = null;
 		Polygon nearestPolygon = null;

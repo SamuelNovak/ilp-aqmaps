@@ -58,7 +58,7 @@ public class App
         
         // set up Drone Controller and fly the drone
         var mp = new DroneController(sensorMap, "flightpath-" + date_string + ".txt", "readings-" + date_string +  ".geojson");
-        mp.executePathPlan(waypoints);
+        mp.executePathPlan(waypoints, noFlyZones);
     }
     
     private static String formatDateDMY(int day, int month, int year) {

@@ -88,12 +88,14 @@ public class PathPlanner {
 				System.out.println("Need to avoid");
 				// TODO evasion algorithm
 				// done by the evader
+				// TODO wtf is this print
+				System.out.println(String.format("Adding %d waypoints.", obstacles.size()));
 				waypoints.addAll(evader.waypointsToAvoidObstacles(current_point, next_point));
 			}
 		}
 		
 		// TODO loop back
-		// waypoints.add(waypoints.get(0)); already done above I think?
+		waypoints.add(waypoints.get(0));
 		
 		
 		// TODO this is DEBUG
