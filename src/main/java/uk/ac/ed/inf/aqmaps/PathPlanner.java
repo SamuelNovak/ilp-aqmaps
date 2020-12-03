@@ -31,13 +31,10 @@ public class PathPlanner {
 					var point_i = map.get(i).toPoint();
 					var point_j = map.get(j).toPoint();
 					
-					distances[i][j] = distance(point_i, point_j);
+					System.out.println(String.format("i=%d, j=%d, has intersection=%b", i, j, !evader.crossedObstacles(point_i, point_j).isEmpty()));
 					
-					// include evasion of no fly zones in the distance matrix
-					var crossedObstacles = evader.crossedObstacles(point_i, point_j);
-					for (var obs : crossedObstacles) {
-						distances[i][j] += 0;//evader.evasionDistance(point_i, point_j, obs); TODO
-					}
+					// let the Evader calculate the distance that includes avoiding obstacles
+					distances[i][j] = evader.evasionDistance(point_i, point_j);
 					
 					// distance matrix is symmetric
 					distances[j][i] = distances[i][j];
@@ -90,7 +87,7 @@ public class PathPlanner {
 				// done by the evader
 				// TODO wtf is this print
 				System.out.println(String.format("Adding %d waypoints.", obstacles.size()));
-				waypoints.addAll(evader.waypointsToAvoidObstacles(current_point, next_point));
+				waypoints.addAll(evader.waypointsToAvoidAllObstacles(current_point, next_point));
 			}
 		}
 		
