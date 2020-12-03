@@ -39,6 +39,15 @@ public class ObstacleEvader {
 			// alternatively - make sure all points are at least SENSOR_DIST away from the polygon
 			zoneExpansions.add(offsetPoints);
 		}
+		
+		
+		// TODO debug
+		var ftrs = new ArrayList<Feature>();
+		for (var points : zoneExpansions) {
+			var f = Feature.fromGeometry(Polygon.fromLngLats(List.of(points)));
+			ftrs.add(f);
+		}
+		System.out.println(FeatureCollection.fromFeatures(ftrs).toJson());
 	}
 	
 	public ArrayList<ArrayList<Point>> crossedObstacles(Point a1, Point a2) {
@@ -313,15 +322,6 @@ public class ObstacleEvader {
 			return null;
 	}
 	
-	private Point createPointAtAngleDistanceFromPoint(Point origin, double length, double angle) {
-		var longitude = origin.longitude();
-		var latitude = origin.latitude();
-		
-		var rot_longitude = longitude + length * Math.cos(Math.toRadians(angle));
-		var rot_latitude = latitude + length * Math.sin(Math.toRadians(angle));
-		return Point.fromLngLat(rot_longitude, rot_latitude);
-	}
-	
 	private double pathLength(ArrayList<Point> path) {
 		double length = 0;
 		for (int i = 0; i < path.size() - 1; i++)
@@ -349,19 +349,37 @@ public class ObstacleEvader {
 				|| (latitude >= DroneController.LAT_MAX) || (latitude <= DroneController.LAT_MIN));
 	}
 	
+	private Point createPointAtAngleDistanceFromPoint(Point origin, double length, double angle) {
+		var longitude = origin.longitude();
+		var latitude = origin.latitude();
+		
+		var angleRad = Math.toRadians(angle);
+		System.out.println(angleRad);
+		
+		var rot_longitude = longitude + length * Math.cos(angleRad);
+		var rot_latitude = latitude + length * Math.sin(angleRad);
+		return Point.fromLngLat(rot_longitude, rot_latitude);
+	}
+	
 	private Point createOffsetPoint(Point pt, List<Point> points) {
-		// for thetaMin
+		// TODO this function needs some love, because it's breaking everything else and my heart
 		// get the index of this point and find the previous and next point on the polygon
 		var pointIndex = points.indexOf(pt);
 		var previous = points.get((points.size() + pointIndex - 1) % points.size());
 		var next = points.get((pointIndex + 1) % points.size());
 		
 		var phiPrevious = angleBetweenPoints(pt, previous);
+		if (phiPrevious < 0)
+			phiPrevious += 360;
 		var phiNext = angleBetweenPoints(pt, next);
+		if (phiNext < 0)
+			phiNext += 360;
 		
-		var phi = ((phiPrevious + phiNext) / 2 + 180) % 360;
+		var phi = ((phiPrevious + phiNext) / 2);
 		
-		return createPointAtAngleDistanceFromPoint(pt, 0.99 * DroneController.SENSOR_READ_MAX_DISTANCE, phi);
+		System.out.println(String.format("phiPrevious = %f; priNext = %f; phi = %f", phiPrevious, phiNext, phi));
+		
+		return createPointAtAngleDistanceFromPoint(pt, 0.01 * DroneController.SENSOR_READ_MAX_DISTANCE, phi);
 	}
 
 }
