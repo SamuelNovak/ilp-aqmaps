@@ -5,8 +5,7 @@ import java.util.ArrayList;
 import com.mapbox.geojson.FeatureCollection;
 import com.mapbox.geojson.Point;
 
-/**
- *
+/** The main class for Air Quality Maps.
  */
 public class AirQualityMapsApp 
 {	

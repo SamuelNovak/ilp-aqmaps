@@ -116,11 +116,19 @@ public class DroneController {
 		System.out.println("Drone journey finished.\nRemaining battery: " + Integer.toString(battery));
 	}
 	
-	private boolean isMoveLegal(double end_longitude, double end_latitude) {
+	private boolean isMoveLegal(double endLongitude, double endLatitude) {
 		var start = Point.fromLngLat(longitude, latitude);
-		var end = Point.fromLngLat(end_longitude, end_latitude);
+		var end = Point.fromLngLat(endLongitude, endLatitude);
 		
 		return (!pointOutOfBounds(end) && evader.crossedObstacles(start, end).isEmpty());
+	}
+	
+	private boolean pointOutOfBounds(Point point) {
+		var longitude = point.longitude();
+		var latitude = point.latitude();
+		
+		return ((longitude >= DroneController.LON_MAX) || (longitude <= DroneController.LON_MIN)
+				|| (latitude >= DroneController.LAT_MAX) || (latitude <= DroneController.LAT_MIN));
 	}
 	
 	private SensorReading readSensor() {
@@ -223,13 +231,5 @@ public class DroneController {
 		marker.addStringProperty("marker-symbol", symbol.getValue());
 		
 		return marker;
-	}
-	
-	private boolean pointOutOfBounds(Point point) {
-		var longitude = point.longitude();
-		var latitude = point.latitude();
-		
-		return ((longitude >= DroneController.LON_MAX) || (longitude <= DroneController.LON_MIN)
-				|| (latitude >= DroneController.LAT_MAX) || (latitude <= DroneController.LAT_MIN));
 	}
 }

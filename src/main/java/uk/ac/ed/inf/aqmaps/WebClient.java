@@ -84,7 +84,7 @@ public class WebClient {
 	
 	/** Translate What3Words into a point (using the web server).
 	 */
-	public Point loadPointFromWords(String words) throws WebClientException {
+	private Point loadPointFromWords(String words) throws WebClientException {
 		var wordsArray = words.split("\\.");
 		var response = load(String.format("words/%s/%s/%s/details.json", wordsArray[0], wordsArray[1], wordsArray[2]));
 		

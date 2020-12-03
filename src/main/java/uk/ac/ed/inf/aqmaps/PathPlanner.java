@@ -41,11 +41,11 @@ public class PathPlanner {
 
 	// Path plan will be a sequence of waypoints for the drone
 	// TODO explanation: so in the future the drone can correct for weather etc., now it only knows the general path (but this will include waypoints to help avoid the no fly zones)
-	public ArrayList<Point> findPath(double start_lat, double start_lon) {
+	public ArrayList<Point> findPath(double startLatitude, double startLongitude) {
 		
 		// calculate the distances to the starting location - vertex at index NUMBER_OF_SENSORS
 		for (int i = 0; i < NUMBER_OF_SENSORS; i++) {
-			distances[NUMBER_OF_SENSORS][i] = Math.hypot(start_lat - sensorList.get(i).lat, start_lon - sensorList.get(i).lon);
+			distances[NUMBER_OF_SENSORS][i] = Math.hypot(startLatitude - sensorList.get(i).lat, startLongitude - sensorList.get(i).lon);
 			distances[i][NUMBER_OF_SENSORS] = distances[NUMBER_OF_SENSORS][i];
 		}
 		
@@ -62,13 +62,13 @@ public class PathPlanner {
 			// assign the correct current and next points - take into account that one point might be the starting point (so it is not in not in this.sensorList)
 			if (i == 0) {
 				// starting point (vertex NUMBER_OF_SENSORS)
-				currentPoint = Point.fromLngLat(start_lon, start_lat);
+				currentPoint = Point.fromLngLat(startLongitude, startLatitude);
 				// writing i+1 explicitly for clarity
 				nextPoint = sensorList.get(tspSequence.get(i+1)).toPoint();
 			} else if (i == NUMBER_OF_SENSORS) {
 				// we are at the last vertex, need to go back
 				currentPoint = sensorList.get(tspSequence.get(i)).toPoint();
-				nextPoint = Point.fromLngLat(start_lon, start_lat);
+				nextPoint = Point.fromLngLat(startLongitude, startLatitude);
 			} else {
 				// general part of the sequence
 				currentPoint = sensorList.get(tspSequence.get(i)).toPoint();
