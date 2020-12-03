@@ -16,11 +16,11 @@ public class PathPlanner {
 	private double[][] distances; // matrix for distances between nodes (weighted graph) TODO explain
 	private ObstacleEvader evader;
 
-	public PathPlanner(ArrayList<SensorReading> map, FeatureCollection noFlyZones) {		
+	public PathPlanner(ObstacleEvader evader, ArrayList<SensorReading> map, FeatureCollection noFlyZones) {		
 		this.map = map;
 		this.noFlyZones = noFlyZones;
 		
-		evader = new ObstacleEvader(noFlyZones);
+		this.evader = evader;
 		
 		// Compute the distance matrix
 		distances = new double[33 + 1][33 + 1]; // 33 sensors + 1 starting location // TODO number of sensors

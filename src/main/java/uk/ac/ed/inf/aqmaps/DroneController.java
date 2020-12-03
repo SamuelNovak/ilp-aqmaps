@@ -30,10 +30,14 @@ public class DroneController {
 	
 	private ArrayList<Move> trajectory; // TODO move into executePathPlan?
 	
-	public DroneController(ArrayList<SensorReading> sensors, String flightpathFilename, String readingsMapFilename) {
+	private ObstacleEvader evader;
+	private int avoidingDirection = 0;
+	
+	public DroneController(ArrayList<SensorReading> sensors, ObstacleEvader evader, String flightpathFilename, String readingsMapFilename) {
 		this.sensors = sensors;
 		this.flightpathFilename = flightpathFilename;
 		this.readingsMapFilename = readingsMapFilename;
+		this.evader = evader;
 	}
 
 	public void executePathPlan(ArrayList<Point> waypoints, FeatureCollection noFlyZones) {
@@ -58,6 +62,28 @@ public class DroneController {
 				// take a step in the phi direction
 				var next_longitude = longitude + MOVE_LENGTH * Math.cos(Math.toRadians(phi));
 				var next_latitude = latitude + MOVE_LENGTH * Math.sin(Math.toRadians(phi));
+				
+				System.out.println(isMoveLegal(next_longitude, next_latitude) ? "Legal" : "Illegal");
+				
+				if (!isMoveLegal(next_longitude, next_latitude)) {
+					if (avoidingDirection == 0) {
+						// decide in which direction to rotate and try to find the new path
+						avoidingDirection = Math.round(theta / 10) > theta / 10 ? +1 : -1;
+						System.out.println(avoidingDirection);
+					}
+					
+					phi += avoidingDirection * 10;
+					next_longitude = longitude + MOVE_LENGTH * Math.cos(Math.toRadians(phi));
+					next_latitude = latitude + MOVE_LENGTH * Math.sin(Math.toRadians(phi));
+					while (!isMoveLegal(next_longitude, next_latitude)) {
+						phi += avoidingDirection * 10;
+						next_longitude = longitude + MOVE_LENGTH * Math.cos(Math.toRadians(phi));
+						next_latitude = latitude + MOVE_LENGTH * Math.sin(Math.toRadians(phi));
+					}
+				} else {
+					// clear path -> reset the direction to avoiding
+					avoidingDirection = 0;
+				}
 				
 				// check if there is a sensor there
 				// TODO copy the sensor reading into an internal place
@@ -91,6 +117,13 @@ public class DroneController {
 		
 		System.out.println("Battery: " + Integer.toString(battery));
 		serializeTrajectory(waypoints, noFlyZones);
+	}
+	
+	private boolean isMoveLegal(double end_longitude, double end_latitude) {
+		var start = Point.fromLngLat(longitude, latitude);
+		var end = Point.fromLngLat(end_longitude, end_latitude);
+		
+		return (!pointOutOfBounds(end) && evader.crossedObstacles(start, end).isEmpty());
 	}
 
 	private double droneDistance(Point pt) {
@@ -182,5 +215,13 @@ public class DroneController {
 		marker.addStringProperty("marker-symbol", symbol.getValue());
 		
 		return marker;
+	}
+	
+	private boolean pointOutOfBounds(Point point) {
+		var longitude = point.longitude();
+		var latitude = point.latitude();
+		
+		return ((longitude >= DroneController.LON_MAX) || (longitude <= DroneController.LON_MIN)
+				|| (latitude >= DroneController.LAT_MAX) || (latitude <= DroneController.LAT_MIN));
 	}
 }

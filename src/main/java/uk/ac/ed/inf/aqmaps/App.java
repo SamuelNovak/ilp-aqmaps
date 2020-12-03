@@ -51,13 +51,14 @@ public class App
 		}
         
         
-        var solver = new PathPlanner(sensorMap, noFlyZones);
+        var evader = new ObstacleEvader(noFlyZones);
+        var solver = new PathPlanner(evader, sensorMap, noFlyZones);
         ArrayList<Point> waypoints = solver.findPath(start_lat, start_lon);
         
         var date_string = formatDateDMY(day, month, year);
         
         // set up Drone Controller and fly the drone
-        var mp = new DroneController(sensorMap, "flightpath-" + date_string + ".txt", "readings-" + date_string +  ".geojson");
+        var mp = new DroneController(sensorMap, evader, "flightpath-" + date_string + ".txt", "readings-" + date_string +  ".geojson");
         mp.executePathPlan(waypoints, noFlyZones);
     }
     
