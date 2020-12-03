@@ -28,6 +28,7 @@ public class ObstacleEvader {
 			var polygon = (Polygon) zones.get(i).geometry();
 			// get external coordinates
 			var points = polygon.coordinates().get(0);
+			this.noFlyZones.add((ArrayList<Point>) points);
 			
 			var offsetPoints = new ArrayList<Point>();
 			for (var pt : points) {
