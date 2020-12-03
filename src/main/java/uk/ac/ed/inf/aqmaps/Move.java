@@ -2,9 +2,7 @@ package uk.ac.ed.inf.aqmaps;
 
 import com.mapbox.geojson.Point;
 
-/**
- * An abstract representation of a move that the drone makes.
- *
+/** An abstract representation of a move that the drone makes.
  */
 public class Move {
 

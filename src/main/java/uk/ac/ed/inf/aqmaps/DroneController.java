@@ -20,28 +20,27 @@ public class DroneController {
 	public static final double LON_MIN = -3.192473;
 	public static final double MOVE_LENGTH = 0.0003; // length of EVERY drone step in degrees
 	public static final double SENSOR_READ_MAX_DISTANCE = 0.0002; // maximum distance from a sensor to receive data - the drone has to be STRICTLY closer than this
+	private final int MAX_BATTERY = 150;
 	
 	private final ArrayList<SensorReading> sensors;
-	private final String flightpathFilename;
-	private final String readingsMapFilename;
 	
-	private int battery = 150;
+	private int battery = MAX_BATTERY;
 	private double latitude, longitude;
 	
-	private ArrayList<Move> trajectory; // TODO move into executePathPlan?
+	private ArrayList<Move> trajectory;
 	
 	private ObstacleEvader evader;
 	private int avoidingDirection = 0;
 	
-	public DroneController(ArrayList<SensorReading> sensors, ObstacleEvader evader, String flightpathFilename, String readingsMapFilename) {
+	public DroneController(ArrayList<SensorReading> sensors, ObstacleEvader evader) {
 		this.sensors = sensors;
-		this.flightpathFilename = flightpathFilename;
-		this.readingsMapFilename = readingsMapFilename;
 		this.evader = evader;
 	}
 
-	public void executePathPlan(ArrayList<Point> waypoints, FeatureCollection noFlyZones) {
+	public void executePathPlan(ArrayList<Point> waypoints) {
+		// initialize state
 		trajectory = new ArrayList<Move>();
+		battery = MAX_BATTERY;
 		
 		var start = waypoints.get(0);
 		longitude = start.longitude();
@@ -52,7 +51,8 @@ public class DroneController {
 			var target = waypoints.get(i);
 			
 			// approach the target
-			// will try to get close to the target, as it could be a sensor
+			// drone try to get close to the target, as it could be a sensor
+			// TODO handle sensor too close
 			while (droneDistance(target) >= SENSOR_READ_MAX_DISTANCE) {
 				// real angle between current location and target
 				var theta = Math.toDegrees(Math.atan2(target.latitude() - latitude, target.longitude() - longitude));
@@ -60,48 +60,46 @@ public class DroneController {
 				var phi = (10 * (int) Math.round(theta / 10) + 360) % 360;
 				
 				// take a step in the phi direction
-				var next_longitude = longitude + MOVE_LENGTH * Math.cos(Math.toRadians(phi));
-				var next_latitude = latitude + MOVE_LENGTH * Math.sin(Math.toRadians(phi));
+				var nextLongitude = longitude + MOVE_LENGTH * Math.cos(Math.toRadians(phi));
+				var nextLatitude = latitude + MOVE_LENGTH * Math.sin(Math.toRadians(phi));
 				
-				System.out.println(isMoveLegal(next_longitude, next_latitude) ? "Legal" : "Illegal");
-				
-				if (!isMoveLegal(next_longitude, next_latitude)) {
+				if (!isMoveLegal(nextLongitude, nextLatitude)) {
 					if (avoidingDirection == 0) {
 						// decide in which direction to rotate and try to find the new path
-						avoidingDirection = Math.round(theta / 10) > theta / 10 ? +1 : -1;
-						System.out.println(avoidingDirection);
+						avoidingDirection = Math.round(theta / 10) > theta / 10 ?  +1  :  -1;
 					}
 					
+					// precompute this, because looking for intersections is expensive
 					phi += avoidingDirection * 10;
-					next_longitude = longitude + MOVE_LENGTH * Math.cos(Math.toRadians(phi));
-					next_latitude = latitude + MOVE_LENGTH * Math.sin(Math.toRadians(phi));
-					while (!isMoveLegal(next_longitude, next_latitude)) {
+					nextLongitude = longitude + MOVE_LENGTH * Math.cos(Math.toRadians(phi));
+					nextLatitude = latitude + MOVE_LENGTH * Math.sin(Math.toRadians(phi));
+					
+					// rotate until able to take that step
+					while (!isMoveLegal(nextLongitude, nextLatitude)) {
 						phi += avoidingDirection * 10;
-						next_longitude = longitude + MOVE_LENGTH * Math.cos(Math.toRadians(phi));
-						next_latitude = latitude + MOVE_LENGTH * Math.sin(Math.toRadians(phi));
+						nextLongitude = longitude + MOVE_LENGTH * Math.cos(Math.toRadians(phi));
+						nextLatitude = latitude + MOVE_LENGTH * Math.sin(Math.toRadians(phi));
 					}
 				} else {
 					// clear path -> reset the direction to avoiding
 					avoidingDirection = 0;
 				}
 				
-				// check if there is a sensor there
-				// TODO copy the sensor reading into an internal place
-				SensorReading sensor = null;
-				for (var s : sensors) {
-					if (droneDistance(s) < SENSOR_READ_MAX_DISTANCE) {
-						sensor = s;
-						break;
-					}
-				}
-				
-				// record the move
-				trajectory.add(new Move(Point.fromLngLat(longitude, latitude), phi, Point.fromLngLat(next_longitude, next_latitude), sensor));
+				// store original location
+				var old_longitude = longitude;
+				var old_latitude = latitude;
 				
 				// update the drone location and battery
-				longitude = next_longitude;
-				latitude = next_latitude;
+				longitude = nextLongitude;
+				latitude = nextLatitude;
 				battery -= 1;
+				
+				// check if there is a sensor there (in the new location)
+				// if there is a sensor, its data will be stored in trajectory
+				SensorReading sensor = readSensor();
+				
+				// record the move (and potentially sensor data)
+				trajectory.add(new Move(Point.fromLngLat(old_longitude, old_latitude), phi, Point.fromLngLat(longitude, latitude), sensor));
 				
 				// if battery is depleted after this move, drone has to stop
 				if (battery == 0)
@@ -110,13 +108,12 @@ public class DroneController {
 			
 			// if battery is depleted, drone has to stop
 			if (battery == 0) {
-				System.out.println(String.format("Drone battery depleted when navigating to waypoint %d out of %d.", i, waypoints.size()));
+				System.out.println(String.format("Drone battery depleted when navigating to waypoint %d (indexed from 0; number of waypoints is %d).", i, waypoints.size()));
 				break;
 			}
 		}
 		
-		System.out.println("Battery: " + Integer.toString(battery));
-		serializeTrajectory(waypoints, noFlyZones);
+		System.out.println("Drone journey finished.\nRemaining battery: " + Integer.toString(battery));
 	}
 	
 	private boolean isMoveLegal(double end_longitude, double end_latitude) {
@@ -124,6 +121,17 @@ public class DroneController {
 		var end = Point.fromLngLat(end_longitude, end_latitude);
 		
 		return (!pointOutOfBounds(end) && evader.crossedObstacles(start, end).isEmpty());
+	}
+	
+	private SensorReading readSensor() {
+		SensorReading sensor = null;
+		for (var s : sensors) {
+			if (droneDistance(s) < SENSOR_READ_MAX_DISTANCE) {
+				sensor = s;
+				break;
+			}
+		}
+		return sensor;
 	}
 
 	private double droneDistance(Point pt) {
@@ -134,56 +142,56 @@ public class DroneController {
 		return Math.hypot(sensor.lon - longitude, sensor.lat - latitude);
 	}
 	
-	private void serializeTrajectory(ArrayList<Point> waypoints, FeatureCollection noFlyZones) { // TODO name
-		@SuppressWarnings("unchecked") // TODO allowed?
-		var unused_sensors = (ArrayList<SensorReading>) sensors.clone();
-		
+	public void serializeTrajectory(String flightpathFilename, String readingsMapFilename) {
+		@SuppressWarnings("unchecked") // sensors is the correct type, so the result of clone is correct as well
+		var unusedSensors = (ArrayList<SensorReading>) sensors.clone();
 		
 		// prepare for file writing
     	var flightpathFile = new File(flightpathFilename);
     	var readingsFile = new File(readingsMapFilename);
     	try {
-    		// create the file if it doesn't exist already
+    		// create the files if they don't exist already
 			flightpathFile.createNewFile();
-			// TODO maybe both files should be in a different try {}?
 			readingsFile.createNewFile();
 			
+			// prepare file writers
 			var flightpathWriter = new FileWriter(flightpathFile);
 			var readingsWriter = new FileWriter(readingsFile);
 			
-			var points = new ArrayList<Point>();
+			var trajectoryPoints = new ArrayList<Point>();
 			var features = new ArrayList<Feature>();
 			
 			for (int i = 0; i < trajectory.size(); i++) {
 				var move = trajectory.get(i);
+				// write the move into flightpath and add its origin to the points representing trajectory
 				flightpathWriter.write(move.serialize(i+1));
-				points.add(move.getOriginal());
+				trajectoryPoints.add(move.getOriginal());
 				
+				// check if there was a sensor
 				var sensor = move.getSensor();
 				if (sensor != null) {
-					if (!unused_sensors.contains(sensor))
+					if (!unusedSensors.contains(sensor))
 						// do not want the same sensor on the map multiple times
 						continue;
 					
-					features.add(createMarker(sensor, true));
-					unused_sensors.remove(sensor);
+					features.add(createSensorMarker(sensor, true));
+					unusedSensors.remove(sensor);
 				}
 				
 			}
 			
-			// end point of last move
-			points.add(trajectory.get(trajectory.size() - 1).getNext());
+			// add the end point of last move - the final point where drone stopped
+			trajectoryPoints.add(trajectory.get(trajectory.size() - 1).getNext());
 		
-			for (var sensor : unused_sensors)
-				features.add(createMarker(sensor, false));
+			// add any unvisited sensors to the map (marked as unvisited)
+			for (var sensor : unusedSensors)
+				features.add(createSensorMarker(sensor, false));
 			
 			// create LineString = the drone's trajectory
-			features.add(Feature.fromGeometry(LineString.fromLngLats(points)));
+			features.add(Feature.fromGeometry(LineString.fromLngLats(trajectoryPoints)));
 			
-			features.addAll(noFlyZones.features()); // TODO debug
-			
+			// write JSON
 			var collection = FeatureCollection.fromFeatures(features);
-			
 			readingsWriter.write(collection.toJson());
 			
 			flightpathWriter.close();
@@ -195,7 +203,7 @@ public class DroneController {
 		}
 	}
 	
-	private Feature createMarker(SensorReading sensor, boolean visited) {
+	private Feature createSensorMarker(SensorReading sensor, boolean visited) {
 		var marker = Feature.fromGeometry(sensor.toPoint());
 		
 		// compute marker properties
@@ -208,7 +216,7 @@ public class DroneController {
 		var colour = properties.left;
 		var symbol = properties.right;
 		
-		// assign marker properties and store marker
+		// assign marker properties
 		marker.addStringProperty("location", sensor.location);
 		marker.addStringProperty("rgb-string", colour.getValue());
 		marker.addStringProperty("marker-color", colour.getValue());

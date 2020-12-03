@@ -1,5 +1,6 @@
 package uk.ac.ed.inf.aqmaps;
 
+// TODO unnecessary or adapt for DroneController's needs
 enum RotationDirection {
 	Both(0),
 	Positive(1),

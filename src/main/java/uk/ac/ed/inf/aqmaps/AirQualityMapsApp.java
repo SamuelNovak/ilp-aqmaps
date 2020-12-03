@@ -8,7 +8,7 @@ import com.mapbox.geojson.Point;
 /**
  *
  */
-public class App 
+public class AirQualityMapsApp 
 {	
     public static void main(String[] args)
     {
@@ -30,36 +30,38 @@ public class App
         year      =   Integer.parseInt(args[2]);
         start_lat = Double.parseDouble(args[3]);
         start_lon = Double.parseDouble(args[4]);
-        // skipping argument 5: this would be the randomness seed (int)
+        // skipping argument 5: this would be the randomness seed (int), but it's not used
         port      =   Integer.parseInt(args[6]);
         
-        
         // setup the map (list of sensor locations; in this stage of development with their readings as well)
-        final ArrayList<SensorReading> sensorMap;
+        final ArrayList<SensorReading> sensorList;
         final FeatureCollection noFlyZones;
         
         
         // Load data from server
         var client = new WebClient(port);
         try {
-			sensorMap = client.loadMap(year, month, day);
+			sensorList = client.loadSensorList(year, month, day);
 			noFlyZones = client.loadNoFlyZones();
 		} catch (WebClientException e) {
 			e.printStackTrace();
 			System.exit(2);
-			return; // so Java doesn't complain TODO
+			// the return won't be reached, but it is required by Java
+			return;
 		}
         
         
         var evader = new ObstacleEvader(noFlyZones);
-        var solver = new PathPlanner(evader, sensorMap, noFlyZones);
+        var solver = new PathPlanner(evader, sensorList);
         ArrayList<Point> waypoints = solver.findPath(start_lat, start_lon);
         
         var date_string = formatDateDMY(day, month, year);
         
         // set up Drone Controller and fly the drone
-        var mp = new DroneController(sensorMap, evader, "flightpath-" + date_string + ".txt", "readings-" + date_string +  ".geojson");
-        mp.executePathPlan(waypoints, noFlyZones);
+        var controller = new DroneController(sensorList, evader);
+        controller.executePathPlan(waypoints);
+        // save the data
+        controller.serializeTrajectory("flightpath-" + date_string + ".txt", "readings-" + date_string +  ".geojson");
     }
     
     private static String formatDateDMY(int day, int month, int year) {

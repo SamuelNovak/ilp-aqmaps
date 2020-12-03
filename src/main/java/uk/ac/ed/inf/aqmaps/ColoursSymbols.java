@@ -2,8 +2,7 @@ package uk.ac.ed.inf.aqmaps;
 
 public class ColoursSymbols {
 
-	/*
-	 * Enum of all colours used, with their respective colour codes.
+	/** Enum of all colours used, with their respective colour codes.
 	 */
 	public enum Colour {
 		Green("#00ff00"),
@@ -56,7 +55,7 @@ public class ColoursSymbols {
 		Lighthouse("lighthouse"),
 		Danger("danger"),
 		Cross("cross"),
-		None(null);
+		None("");
 		
 		private String value;
 		private Symbol(String symbolString) {
@@ -80,6 +79,11 @@ public class ColoursSymbols {
 		}
 	}
 	
+	/** Get a pair of Colour and Symbol for a marker, depending on sensor readings.
+	 * @param reading
+	 * @param battery
+	 * @return Pair (colour, symbol)
+	 */
 	public static Pair<Colour,Symbol> getColourSymbol(String reading, double battery) {
 		if (battery < 10)
 			// Sensor cannot be trusted
@@ -90,9 +94,12 @@ public class ColoursSymbols {
 		return new Pair<Colour,Symbol>(Colour.getFromPollution(pollution), Symbol.getFromPollution(pollution));
 	}
 	
-	// constant value for unused sensor
+	/** Constant value for unused sensor */
 	private final static Pair<Colour, Symbol> notVisited = new Pair<Colour,Symbol>(Colour.Gray, Symbol.None);
 	
+	/** Get properties of an unvisited sensor.
+	 * @return Pair (colour, symbol)
+	 */
 	public static Pair<Colour,Symbol> getNotVisited() {
 		return notVisited;
 	}

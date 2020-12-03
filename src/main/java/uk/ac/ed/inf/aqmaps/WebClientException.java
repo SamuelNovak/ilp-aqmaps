@@ -1,27 +1,29 @@
 package uk.ac.ed.inf.aqmaps;
 
-@SuppressWarnings("serial") // TODO je to problem?
 public class WebClientException extends Exception {
-
-	private String comment;
-	private Exception original; // for the case when the error is a general one, and it is not easily identifies
+	// required by Java
+	private static final long serialVersionUID = 1L;
 	
-	// TODO naco mi to je, ale to asi pojde do reportu
-	// Akoze aby boli uniformne vypadky z klienta
+	private final String comment;
+	// for the case when the error is a general one, and it is not easily identified
+	private final Exception originalException;
 	
-	public WebClientException(String comment, Exception original_exc) {
+	public WebClientException(String comment, Exception originalException) {
 		this.comment = comment;
-		this.original = original_exc;
+		this.originalException = originalException;
 	}
 	
 	public void printStackTrace() {
-		// TODO pretty print
+		System.err.print(this.getClass().getName());
+		
 		if (comment != null)
-			System.err.print(comment + " ");
-		if (original != null) {
-			System.err.println("Original stack trace:");
-			original.printStackTrace(System.err);
-		} else
+			System.err.println(": " + comment);
+		else
 			System.err.println();
+		
+		if (originalException != null) {
+			System.err.println("Original stack trace:");
+			originalException.printStackTrace(System.err);
+		}
 	}
 }

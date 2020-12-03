@@ -1,8 +1,5 @@
 package uk.ac.ed.inf.aqmaps;
 
-
-// TODO maybe this is not necessary
-
 /** Arbitrary pair (2-tuple) of possibly different types. Elements are final and directly accessible.
  * Meant to be viewed as a pure data type.
  */

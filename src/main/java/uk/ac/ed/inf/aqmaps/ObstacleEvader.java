@@ -1,6 +1,5 @@
 package uk.ac.ed.inf.aqmaps;
 
-import java.awt.geom.Line2D;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -48,6 +47,10 @@ public class ObstacleEvader {
 			ftrs.add(f);
 		}
 		System.out.println(FeatureCollection.fromFeatures(ftrs).toJson());
+	}
+	
+	public ArrayList<ArrayList<Point>> getNoFlyZones() {
+		return noFlyZones;
 	}
 	
 	public ArrayList<ArrayList<Point>> crossedObstacles(Point a1, Point a2) {

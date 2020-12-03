@@ -1,14 +1,14 @@
 package uk.ac.ed.inf.aqmaps;
 
-/**
- * Class used for deserializing words/.../details.json using Gson.
- *
+/** Class used for deserializing words/.../details.json using Gson.
  */
 public class W3WDetails {
 	String words;
-	Coordinates coordinates;
+	CoordinatesObject coordinates;
 	
-	class Coordinates { // TODO rename a popisat co to je
+	/** Represents a nested object containing coordinates in the JSON.
+	 */
+	class CoordinatesObject {
 		double lng, lat;
 	}
 }
