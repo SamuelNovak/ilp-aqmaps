@@ -34,7 +34,7 @@ public class PathPlanner {
 					System.out.println(String.format("i=%d, j=%d, has intersection=%b", i, j, !evader.crossedObstacles(point_i, point_j).isEmpty()));
 					
 					// let the Evader calculate the distance that includes avoiding obstacles
-					distances[i][j] = evader.evasionDistance(point_i, point_j);
+					distances[i][j] = !evader.crossedObstacles(point_i, point_j).isEmpty() ? 10 : distance(point_i, point_j); // evader.evasionDistance(point_i, point_j);
 					
 					// distance matrix is symmetric
 					distances[j][i] = distances[i][j];

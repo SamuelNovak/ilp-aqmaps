@@ -152,6 +152,8 @@ public class ObstacleEvader {
 		// recursive run won't care about the clearedObstacles anymore - speedup
 		
 		var waypoints = new ArrayList<Point>();
+		return waypoints;
+		/* TODO disconnected evader
 		var lastPoint = originPoint;
 		
 		var nearestIntersectingObstacle = findNearestIntersectingObstacle(originPoint, nextPoint);
@@ -182,6 +184,7 @@ public class ObstacleEvader {
 		}
 		
 		return waypoints;
+		*/
 	}
 	
 	/** Calculate waypoints around a particular obstacle, with possibility of specifying the preferred direction
