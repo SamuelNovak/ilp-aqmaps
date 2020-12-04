@@ -120,7 +120,7 @@ public class DroneController {
 		var start = Point.fromLngLat(longitude, latitude);
 		var end = Point.fromLngLat(endLongitude, endLatitude);
 		
-		return (!pointOutOfBounds(end) && evader.crossedObstacles(start, end).isEmpty());
+		return (!pointOutOfBounds(end) && !evader.crossesAnyObstacles(start, end));
 	}
 	
 	private boolean pointOutOfBounds(Point point) {
