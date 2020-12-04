@@ -4,34 +4,46 @@ import traceback
 from subprocess import Popen, PIPE
 from math import sqrt
 
-print(sys.argv)
+from argparse import ArgumentParser, ArgumentTypeError
+
+def coords(s):
+    try:
+        lat, lon = map(float, s.split(","))
+        return lat, lon
+    except:
+        raise ArgumentTypeError("Coordinates must be lat,lon") from None
+
+parser = ArgumentParser()
+parser.add_argument("target", type=str)
+parser.add_argument("-y", "--year", type=int, default=2020)
+parser.add_argument("-p", "--port", type=int, default=8888)
+parser.add_argument("-c", "--coords", type=coords, default=(55.944425, -3.188396))
+args = parser.parse_args()
+
 os.chdir("ilp-results")
 
-args = "{day} {month} {year} 55.9444 -3.1878 5678 8888"
-
-year = 2020
+run_args = "{day} {month} " + f"{args.year} {args.coords[0]} {args.coords[1]} 5678 {args.port}"
 path = os.path.join("..", sys.argv[1])
 
 with open("log.txt", "wb") as log:
     for i in range(1, 13):
-        day = month = i
-        print(f"Running for {day} {month} {year}")
-        log.write(f"Log for {day} {month} {year}:\n\n".encode())
+        day = month = str(i).zfill(2)
+        print(f"Running for {day} {month} {args.year}")
+        log.write(f"Log for {day} {month} {args.year}:\n\n".encode())
         try:
             proc = Popen(shlex.split(f"java -jar {path} " \
-                                     + args.format(year=2020,
-                                                   month=month,
-                                                   day=day)),
+                                     + run_args.format(month=month,
+                                                       day=day)),
                          stdout=PIPE)
             stdout, stderr = proc.communicate(None)
             log.write(stdout)
             if stderr:
                 log.write(b"Error:\n")
                 log.write(stderr)
-            log.write(f"\nEnd of log for {day} {month} {year}\n\n".encode())
+            log.write(f"\nEnd of log for {day} {month} {args.year}\n\n".encode())
         except KeyboardInterrupt:
             print(data)
             sys.exit()
         except:
-            print(f"Error on {day} {month} {year}:")
+            print(f"Error on {day} {month} {args.year}:")
             traceback.print_exc()

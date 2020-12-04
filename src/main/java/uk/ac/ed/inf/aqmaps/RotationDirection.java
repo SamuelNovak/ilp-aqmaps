@@ -1,8 +1,7 @@
 package uk.ac.ed.inf.aqmaps;
 
-// TODO unnecessary or adapt for DroneController's needs
 enum RotationDirection {
-	Both(0),
+	None(0),
 	Positive(1),
 	Negative(-1);
 
@@ -11,19 +10,11 @@ enum RotationDirection {
 		this.value = value;
 	}
 	
-	private int getValue() {
+	public int getValue() {
 		return value;
 	}
 	
-	public boolean allowsPositive() {
-		return (value >= 0);
-	}
-	
-	public boolean allowsNegative() {
-		return (value <= 0);
-	}
-	
-	public boolean equals(RotationDirection dir) {
-		return (value == dir.getValue());
+	public boolean equals(RotationDirection direction) {
+		return getValue() == direction.getValue();
 	}
 }

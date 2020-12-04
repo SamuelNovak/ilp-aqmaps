@@ -13,13 +13,13 @@ import com.mapbox.geojson.Point;
 public class DroneController {
 
 	// Flight boundaries
-	// TODO keywords?
-	public static final double LAT_MAX = 55.946233; // latitude
-	public static final double LAT_MIN = 55.942617;
-	public static final double LON_MAX = -3.184319; // longitude
-	public static final double LON_MIN = -3.192473;
-	public static final double MOVE_LENGTH = 0.0003; // length of EVERY drone step in degrees
-	public static final double SENSOR_READ_MAX_DISTANCE = 0.0002; // maximum distance from a sensor to receive data - the drone has to be STRICTLY closer than this
+	private final double LAT_MAX = 55.946233; // latitude
+	private final double LAT_MIN = 55.942617;
+	private final double LON_MAX = -3.184319; // longitude
+	private final double LON_MIN = -3.192473;
+	// drone parameters
+	private final double MOVE_LENGTH = 0.0003; // length of EVERY drone step in degrees
+	private final double SENSOR_READ_MAX_DISTANCE = 0.0002; // maximum distance from a sensor to receive data - the drone has to be STRICTLY closer than this
 	private final int MAX_BATTERY = 150;
 	
 	private final ArrayList<SensorReading> sensors;
@@ -30,7 +30,7 @@ public class DroneController {
 	private ArrayList<Move> trajectory;
 	
 	private ObstacleEvader evader;
-	private int avoidingDirection = 0;
+	private RotationDirection avoidingDirection = RotationDirection.None;
 	
 	public DroneController(ArrayList<SensorReading> sensors, ObstacleEvader evader) {
 		this.sensors = sensors;
@@ -64,25 +64,25 @@ public class DroneController {
 				var nextLatitude = latitude + MOVE_LENGTH * Math.sin(Math.toRadians(phi));
 				
 				if (!isMoveLegal(nextLongitude, nextLatitude)) {
-					if (avoidingDirection == 0) {
+					if (avoidingDirection.equals(RotationDirection.None)) {
 						// decide in which direction to rotate and try to find the new path
-						avoidingDirection = Math.round(theta / 10) > theta / 10 ?  +1  :  -1;
+						avoidingDirection = Math.round(theta / 10) > theta / 10 ?  RotationDirection.Positive  :  RotationDirection.Negative;
 					}
 					
 					// precompute this, because looking for intersections is expensive
-					phi += avoidingDirection * 10;
+					phi += avoidingDirection.getValue() * 10;
 					nextLongitude = longitude + MOVE_LENGTH * Math.cos(Math.toRadians(phi));
 					nextLatitude = latitude + MOVE_LENGTH * Math.sin(Math.toRadians(phi));
 					
 					// rotate until able to take that step
 					while (!isMoveLegal(nextLongitude, nextLatitude)) {
-						phi += avoidingDirection * 10;
+						phi += avoidingDirection.getValue() * 10;
 						nextLongitude = longitude + MOVE_LENGTH * Math.cos(Math.toRadians(phi));
 						nextLatitude = latitude + MOVE_LENGTH * Math.sin(Math.toRadians(phi));
 					}
 				} else {
 					// clear path -> reset the direction to avoiding
-					avoidingDirection = 0;
+					avoidingDirection = RotationDirection.None;
 				}
 				
 				// store original location
@@ -96,10 +96,29 @@ public class DroneController {
 				
 				// check if there is a sensor there (in the new location)
 				// if there is a sensor, its data will be stored in trajectory
-				SensorReading sensor = readSensor();
+				var sensorsInRange = getSensorsInRange();
+				if (sensorsInRange == null) {
+					trajectory.add(new Move(Point.fromLngLat(old_longitude, old_latitude), phi, Point.fromLngLat(longitude, latitude), null));
+				} else {
+					SensorReading sensor = null;
+					if (sensorsInRange.size() == 1) {
+						// the easy case
+						sensor = sensorsInRange.get(0);
+					} else if (sensorsInRange.size() == 2) {
+						// the more complex case
+						System.out.println("Two in range");
+						sensor = sensorsInRange.get(0);
+					} else {
+						// panic TODO
+						System.out.println("Way too many sensors in one location!");
+						sensor = sensorsInRange.get(0);
+					}
+					
+					trajectory.add(new Move(Point.fromLngLat(old_longitude, old_latitude), phi, Point.fromLngLat(longitude, latitude), sensor));
+				}
 				
 				// record the move (and potentially sensor data)
-				trajectory.add(new Move(Point.fromLngLat(old_longitude, old_latitude), phi, Point.fromLngLat(longitude, latitude), sensor));
+				// TODO trajectory.add(new Move(Point.fromLngLat(old_longitude, old_latitude), phi, Point.fromLngLat(longitude, latitude), sensor));
 				
 				// if battery is depleted after this move, drone has to stop
 				if (battery == 0)
@@ -127,19 +146,22 @@ public class DroneController {
 		var longitude = point.longitude();
 		var latitude = point.latitude();
 		
-		return ((longitude >= DroneController.LON_MAX) || (longitude <= DroneController.LON_MIN)
-				|| (latitude >= DroneController.LAT_MAX) || (latitude <= DroneController.LAT_MIN));
+		return ((longitude >= LON_MAX) || (longitude <= LON_MIN)
+				|| (latitude >= LAT_MAX) || (latitude <= LAT_MIN));
 	}
 	
-	private SensorReading readSensor() {
-		SensorReading sensor = null;
+	private ArrayList<SensorReading> getSensorsInRange() {
+		var sensorsInRange = new ArrayList<SensorReading>();
 		for (var s : sensors) {
 			if (droneDistance(s) < SENSOR_READ_MAX_DISTANCE) {
-				sensor = s;
+				sensorsInRange.add(s);
 				break;
 			}
 		}
-		return sensor;
+		if (sensorsInRange.isEmpty())
+			return null;
+		else
+			return sensorsInRange;
 	}
 
 	private double droneDistance(Point pt) {

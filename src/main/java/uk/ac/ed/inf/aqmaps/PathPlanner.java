@@ -38,8 +38,7 @@ public class PathPlanner {
 			}
 	}
 	
-	// TODO identifier
-	static double distance(Point x, Point y) {
+	private static double distance(Point x, Point y) {
 		return Math.hypot(x.latitude() - y.latitude(), x.longitude() - y.longitude());
 	}
 
@@ -56,17 +55,10 @@ public class PathPlanner {
 		// generate a high-level flight plan - sequence of vertices (sensors) in a good order to visit them
 		var tspSequence = solveTSP();
 
-		// waypoints that will guide the drone
+		// waypoints that will guide the drone (these are actual positions)
 		var waypoints = new ArrayList<Point>();
 		
-		// TODO
-		var skipThisWaypoint = false;
-		for (int i = 0; i < NUMBER_OF_SENSORS + 1; i++) {
-			if (skipThisWaypoint) {
-				skipThisWaypoint = false;
-				continue;
-			}
-			
+		for (int i = 0; i < NUMBER_OF_SENSORS + 1; i++) {			
 			Point currentPoint, nextPoint;
 			
 			// assign the correct current and next points - take into account that one point might be the starting point (so it is not in not in this.sensorList)
@@ -85,31 +77,7 @@ public class PathPlanner {
 				nextPoint = sensorList.get(tspSequence.get(i + 1)).toPoint();
 			}
 			
-			// check if this waypoint is too close to the next one
-			var distNext = distance(currentPoint, nextPoint);
-			if (distNext < DroneController.MOVE_LENGTH) {
-				System.out.println("Very close!");
-				// expand the distance between here and the next one
-				// TODO not really safe
-				var deltaAlpha = (DroneController.MOVE_LENGTH / distNext - 1) / 2;
-				
-				var currentPrimeLongitude = currentPoint.longitude() - deltaAlpha * (nextPoint.longitude() - currentPoint.longitude());
-				var currentPrimeLatitude = currentPoint.latitude() - deltaAlpha * (nextPoint.latitude() - currentPoint.latitude());
-
-				var nextPrimeLongitude = currentPoint.longitude() + (1 + deltaAlpha) * (nextPoint.longitude() - currentPoint.longitude());
-				var nextPrimeLatitude = currentPoint.latitude() + (1 + deltaAlpha) * (nextPoint.latitude() - currentPoint.latitude());
-				
-				var currentPrime = Point.fromLngLat(currentPrimeLongitude, currentPrimeLatitude);
-				var nextPrime = Point.fromLngLat(nextPrimeLongitude, nextPrimeLatitude);
-				
-				if (!evader.crossesAnyObstacles(currentPrime, nextPrime)) {
-					waypoints.add(currentPrime);
-					waypoints.add(nextPrime); // TODO radsej nech sa stara o waypoints[-1]
-					skipThisWaypoint = true;
-				}
-			} else {
-				waypoints.add(currentPoint);
-			}
+			waypoints.add(currentPoint);
 		}
 		
 		// loop back
@@ -126,8 +94,8 @@ public class PathPlanner {
 		// get initial sequence of vertices from Nearest Insert
 		var sequence = nearestInsert();
 
-		// optimize the obtained sequence by Swap + 2-Opt (in place)
-		swap2opt(sequence);
+		// optimize the obtained sequence by Flip + Swap (in place)
+		flipSwap(sequence);
 
 		// need to rotate the sequence (i.e. cyclical shift) so that it starts at the starting location (vertex index NUMBER_OF_SENSORS)
 		{
@@ -228,13 +196,12 @@ public class PathPlanner {
 	}
 	
 	
-	/** Method to optimize an existing TSP circuit using a mixed Swap & 2-Opt heuristics - done in place
+	/** Method to optimize an existing TSP circuit using a mixed Flip (local) & Swap heuristics - done in place
 	 * @param sequence An existing TSP circuit - sequence of vertex ids (indices in this.map)
 	 */
 	// TODO: pokec o tom, ze z pokusov sa zda, ze takto ich zmiesat je lepsie
-	// TODO: rename, toto nie je 2opt
-	private void swap2opt(ArrayList<Integer> sequence) {
-		for (int i = 0; i < NUMBER_OF_SENSORS + 1; i++)
+	private void flipSwap(ArrayList<Integer> sequence) {
+		for (int i = 0; i < NUMBER_OF_SENSORS + 1; i++) 
 			for (int j = 0; j < NUMBER_OF_SENSORS + 1; j++) {
 				if (i == j)
 					continue;
@@ -295,6 +262,7 @@ public class PathPlanner {
 					}
 				}
 			}
+			
 	}
 
 }
