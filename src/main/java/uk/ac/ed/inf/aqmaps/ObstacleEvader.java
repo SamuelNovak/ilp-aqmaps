@@ -1,6 +1,8 @@
 package uk.ac.ed.inf.aqmaps;
 
 import java.util.ArrayList;
+import java.util.HashMap;
+
 import com.mapbox.geojson.FeatureCollection;
 import com.mapbox.geojson.Point;
 import com.mapbox.geojson.Polygon;
@@ -8,23 +10,59 @@ import com.mapbox.geojson.Polygon;
 
 public class ObstacleEvader {
 
+	/** Storage for obstacle polygons (unpacked) */
 	private ArrayList<ArrayList<Point>> noFlyZones;
+	private HashMap<ArrayList<Point>, Point> averages;
 	
 	public ObstacleEvader(FeatureCollection noFlyZones) {		
 		var zones = noFlyZones.features();
+		// initialized with size
+		averages = new HashMap<ArrayList<Point>, Point>(zones.size());
 		
 		this.noFlyZones = new ArrayList<ArrayList<Point>>();
 		
 		for (int i = 0; i < zones.size(); i++) {
 			var polygon = (Polygon) zones.get(i).geometry();
 			// get external coordinates
-			var points = polygon.coordinates().get(0);
-			this.noFlyZones.add((ArrayList<Point>) points);
+			var points = (ArrayList<Point>) polygon.coordinates().get(0);
+			this.noFlyZones.add(points);
+			averages.put(points, getAveragePoint(points));
 		}
+	}
+	
+	private Point getAveragePoint(ArrayList<Point> points) {
+		double longitude = 0;
+		double latitude = 0;
+		
+		for (var pt : points) {
+			longitude += pt.longitude();
+			latitude += pt.latitude();
+		}
+		
+		return Point.fromLngLat(longitude / points.size(), latitude / points.size());
 	}
 	
 	public boolean crossesAnyObstacles(Point a1, Point a2) {
 		return !allCrossedObstacles(a1, a2).isEmpty();
+	}
+	
+	public ArrayList<Point> nearestCrossedObstacle(Point origin, Point end) {		
+		ArrayList<Point> nearestObstacle = null;
+		// a distance will never be negative - using -1 to signify no value yet
+		double minDistance = -1;
+		
+		for (var obs : noFlyZones) {
+			var intersections = obstacleIntersections(origin, end, obs);
+			for (var inter : intersections) {
+				var dist = Math.hypot(origin.longitude() - inter.left.longitude(), origin.latitude() - inter.left.latitude());
+				if (minDistance == -1 || dist < minDistance) {
+					minDistance = dist;
+					nearestObstacle = obs;
+				}
+			}
+		}
+		
+		return nearestObstacle;
 	}
 	
 	private ArrayList<ArrayList<Point>> allCrossedObstacles(Point a1, Point a2) {
@@ -72,7 +110,6 @@ public class ObstacleEvader {
 	 * @param b2 End point of second line
 	 * @return
 	 */
-	// TODO move up
 	private Point intersection(Point a1, Point a2, Point b1, Point b2) {
 		var a1x = a1.longitude();
 		var a1y = a1.latitude();
@@ -104,4 +141,13 @@ public class ObstacleEvader {
 		return Point.fromLngLat(x, y);
 	}
 
+	public RotationDirection chooseEvasionDirection(ArrayList<Point> obstacle, Point origin, double angle) {
+		var average = averages.get(obstacle);
+		var phi = Math.toDegrees(Math.atan2(average.latitude() - origin.latitude(), average.longitude() - origin.longitude()));
+		
+		if (phi > angle)
+			return RotationDirection.Positive;
+		else
+			return RotationDirection.Negative;
+	}
 }

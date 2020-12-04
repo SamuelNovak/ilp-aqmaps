@@ -14,7 +14,16 @@ enum RotationDirection {
 		return value;
 	}
 	
-	public boolean equals(RotationDirection direction) {
+	public boolean equal(RotationDirection direction) {
 		return getValue() == direction.getValue();
+	}
+
+	public RotationDirection invert() {
+		if (value == 0)
+			return RotationDirection.None;
+		else if (value == 1)
+			return RotationDirection.Negative;
+		else
+			return RotationDirection.Positive;
 	}
 }
