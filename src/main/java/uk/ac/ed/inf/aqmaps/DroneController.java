@@ -3,6 +3,8 @@ package uk.ac.ed.inf.aqmaps;
 import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.io.ObjectStreamClass;
+import java.nio.file.AtomicMoveNotSupportedException;
 import java.util.ArrayList;
 
 import com.mapbox.geojson.Feature;
@@ -30,7 +32,7 @@ public class DroneController {
 	private ArrayList<Move> trajectory;
 	
 	private ObstacleEvader evader;
-	private RotationDirection avoidingDirection = RotationDirection.None;
+	private RotationDirection avoidingDirection = RotationDirection.None; // TODO rename to evasionAngle
 	
 	public DroneController(ArrayList<SensorReading> sensors, ObstacleEvader evader) {
 		this.sensors = sensors;
@@ -51,39 +53,70 @@ public class DroneController {
 			var target = waypoints.get(i);
 			
 			// approach the target
-			// drone try to get close to the target, as it could be a sensor
-			// TODO handle sensor too close
+			// drone will try to get close to the target, it could be a sensor
 			while (droneDistance(target) >= SENSOR_READ_MAX_DISTANCE) {
 				// real angle between current location and target
-				var theta = Math.toDegrees(Math.atan2(target.latitude() - latitude, target.longitude() - longitude));
+				var targetAngle = Math.toDegrees(Math.atan2(target.latitude() - latitude, target.longitude() - longitude));
 				// allowed angle: multiple of 10, also within [0,350] (no negatives)
-				var phi = (10 * (int) Math.round(theta / 10) + 360) % 360;
+				double moveAngle = (10 * (int) Math.round(targetAngle / 10) + 360) % 360;
 				
-				// take a step in the phi direction
-				var nextLongitude = longitude + MOVE_LENGTH * Math.cos(Math.toRadians(phi));
-				var nextLatitude = latitude + MOVE_LENGTH * Math.sin(Math.toRadians(phi));
+				var here = Point.fromLngLat(longitude, latitude);
 				
-				if (!isMoveLegal(nextLongitude, nextLatitude)) {
+				// take a step in the moveAngle direction
+				var next = computeMove(moveAngle);
+				
+				// the environmental inputs that 
+				var nextOutOfBounds = pointOutOfBounds(next);
+				var obstacle = evader.nearestCrossedObstacle(here, next);
+				var intersectingObstacle = (obstacle != null);
+				
+				if (avoidingDirection.equal(RotationDirection.None)) {
+					// the general state - navigation as normal
+					if (obstacle != null) {
+						// found a no-fly zone, switch to the appropriate state
+						avoidingDirection = evader.chooseEvasionDirection(obstacle, here, targetAngle);
+						continue;
+					} else {
+						if (pointOutOfBounds(next))
+							moveAngle = chooseBoundaryCorrectionDirection(moveAngle);
+					}
+				} else {
+					// drone in the process of evasion
+					if (nextOutOfBounds) {
+						// switch evasion direction and try again
+						avoidingDirection = avoidingDirection.invert();
+						continue;
+					} else {
+						while (evader.crossesAnyObstacles(here, next)) {
+							moveAngle += avoidingDirection.getValue() * 10;
+							next = computeMove(moveAngle);
+							// TODO what if it goes for a boundary
+						}
+					}
+				}
+				
+				
+				/* if (!isMoveLegal(nextLongitude, nextLatitude)) {
 					if (avoidingDirection.equals(RotationDirection.None)) {
 						// decide in which direction to rotate and try to find the new path
-						avoidingDirection = Math.round(theta / 10) > theta / 10 ?  RotationDirection.Positive  :  RotationDirection.Negative;
+						avoidingDirection = Math.round(targetAngle / 10) > targetAngle / 10 ?  RotationDirection.Positive  :  RotationDirection.Negative;
 					}
 					
 					// precompute this, because looking for intersections is expensive
-					phi += avoidingDirection.getValue() * 10;
-					nextLongitude = longitude + MOVE_LENGTH * Math.cos(Math.toRadians(phi));
-					nextLatitude = latitude + MOVE_LENGTH * Math.sin(Math.toRadians(phi));
+					moveAngle += avoidingDirection.getValue() * 10;
+					nextLongitude = longitude + MOVE_LENGTH * Math.cos(Math.toRadians(moveAngle));
+					nextLatitude = latitude + MOVE_LENGTH * Math.sin(Math.toRadians(moveAngle));
 					
 					// rotate until able to take that step
 					while (!isMoveLegal(nextLongitude, nextLatitude)) {
-						phi += avoidingDirection.getValue() * 10;
-						nextLongitude = longitude + MOVE_LENGTH * Math.cos(Math.toRadians(phi));
-						nextLatitude = latitude + MOVE_LENGTH * Math.sin(Math.toRadians(phi));
+						moveAngle += avoidingDirection.getValue() * 10;
+						nextLongitude = longitude + MOVE_LENGTH * Math.cos(Math.toRadians(moveAngle));
+						nextLatitude = latitude + MOVE_LENGTH * Math.sin(Math.toRadians(moveAngle));
 					}
 				} else {
 					// clear path -> reset the direction to avoiding
 					avoidingDirection = RotationDirection.None;
-				}
+				} */
 				
 				// store original location
 				var old_longitude = longitude;
@@ -98,7 +131,7 @@ public class DroneController {
 				// if there is a sensor, its data will be stored in trajectory
 				var sensorsInRange = getSensorsInRange();
 				if (sensorsInRange == null) {
-					trajectory.add(new Move(Point.fromLngLat(old_longitude, old_latitude), phi, Point.fromLngLat(longitude, latitude), null));
+					trajectory.add(new Move(Point.fromLngLat(old_longitude, old_latitude), moveAngle, Point.fromLngLat(longitude, latitude), null));
 				} else {
 					SensorReading sensor = null;
 					if (sensorsInRange.size() == 1) {
@@ -114,7 +147,7 @@ public class DroneController {
 						sensor = sensorsInRange.get(0);
 					}
 					
-					trajectory.add(new Move(Point.fromLngLat(old_longitude, old_latitude), phi, Point.fromLngLat(longitude, latitude), sensor));
+					trajectory.add(new Move(Point.fromLngLat(old_longitude, old_latitude), moveAngle, Point.fromLngLat(longitude, latitude), sensor));
 				}
 				
 				// record the move (and potentially sensor data)
@@ -135,9 +168,15 @@ public class DroneController {
 		System.out.println("Drone journey finished.\nRemaining battery: " + Integer.toString(battery));
 	}
 	
-	private boolean isMoveLegal(double endLongitude, double endLatitude) {
+	private Point computeMove(double angle) {
+		var nextLongitude = longitude + MOVE_LENGTH * Math.cos(Math.toRadians(angle));
+		var nextLatitude = latitude + MOVE_LENGTH * Math.sin(Math.toRadians(angle));
+		var next = Point.fromLngLat(nextLongitude, nextLatitude);
+		return next;
+	}
+	
+	private boolean isMoveLegal(Point end) {
 		var start = Point.fromLngLat(longitude, latitude);
-		var end = Point.fromLngLat(endLongitude, endLatitude);
 		
 		return (!pointOutOfBounds(end) && !evader.crossesAnyObstacles(start, end));
 	}
@@ -148,6 +187,12 @@ public class DroneController {
 		
 		return ((longitude >= LON_MAX) || (longitude <= LON_MIN)
 				|| (latitude >= LAT_MAX) || (latitude <= LAT_MIN));
+	}
+	
+	/** Provide angle correction if the drone is attempting to cross the boundaries of confinement.
+	 */
+	private double chooseBoundaryCorrectionDirection(double angle) { // TODO rename to getBoundaryAngularCorrection
+		return 0;
 	}
 	
 	private ArrayList<SensorReading> getSensorsInRange() {
