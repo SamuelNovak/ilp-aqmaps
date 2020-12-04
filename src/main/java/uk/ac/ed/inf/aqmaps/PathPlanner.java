@@ -26,7 +26,7 @@ public class PathPlanner {
 					var jPoint = sensorList.get(j).toPoint();
 					
 					// TODO
-					distances[i][j] = !evader.crossesAnyObstacles(iPoint, jPoint) ? 10 : distance(iPoint, jPoint); // evader.evasionDistance(point_i, point_j);
+					distances[i][j] = evader.crossesAnyObstacles(iPoint, jPoint) ? 10 : distance(iPoint, jPoint); // evader.evasionDistance(point_i, point_j);
 					
 					// distance matrix is symmetric
 					distances[j][i] = distances[i][j];
