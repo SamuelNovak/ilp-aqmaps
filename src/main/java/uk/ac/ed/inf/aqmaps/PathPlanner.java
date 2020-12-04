@@ -9,12 +9,15 @@ public class PathPlanner {
 	private final ArrayList<SensorReading> sensorList;
 	private final int NUMBER_OF_SENSORS;
 	
+	private ObstacleEvader evader;
+	
 	// matrix for distances between nodes (undirected weighted graph)
 	private double[][] distances;
 
 	public PathPlanner(ObstacleEvader evader, ArrayList<SensorReading> sensorList) {		
 		this.sensorList = sensorList;
 		this.NUMBER_OF_SENSORS = sensorList.size();
+		this.evader = evader;
 		
 		// Compute the distance matrix
 		distances = new double[NUMBER_OF_SENSORS + 1][NUMBER_OF_SENSORS + 1]; // (NUMBER_OF_SENSORS sensors) + (1 starting location)
@@ -57,7 +60,13 @@ public class PathPlanner {
 		var waypoints = new ArrayList<Point>();
 		
 		// TODO
+		var skipThisWaypoint = false;
 		for (int i = 0; i < NUMBER_OF_SENSORS + 1; i++) {
+			if (skipThisWaypoint) {
+				skipThisWaypoint = false;
+				continue;
+			}
+			
 			Point currentPoint, nextPoint;
 			
 			// assign the correct current and next points - take into account that one point might be the starting point (so it is not in not in this.sensorList)
@@ -76,18 +85,31 @@ public class PathPlanner {
 				nextPoint = sensorList.get(tspSequence.get(i + 1)).toPoint();
 			}
 			
-			waypoints.add(currentPoint);
+			// check if this waypoint is too close to the next one
+			var distNext = distance(currentPoint, nextPoint);
+			if (distNext < DroneController.MOVE_LENGTH) {
+				System.out.println("Very close!");
+				// expand the distance between here and the next one
+				// TODO not really safe
+				var deltaAlpha = (DroneController.MOVE_LENGTH / distNext - 1) / 2;
+				
+				var currentPrimeLongitude = currentPoint.longitude() - deltaAlpha * (nextPoint.longitude() - currentPoint.longitude());
+				var currentPrimeLatitude = currentPoint.latitude() - deltaAlpha * (nextPoint.latitude() - currentPoint.latitude());
 
-			// TODO remove this
-			/*var obstacles = evader.crossedObstacles(currentPoint, nextPoint);
-			if (!obstacles.isEmpty()) {
-				System.out.println("Need to avoid");
-				// TODO evasion algorithm
-				// done by the evader
-				// TODO wtf is this print
-				System.out.println(String.format("Adding %d waypoints.", obstacles.size()));
-				waypoints.addAll(evader.waypointsToAvoidAllObstacles(currentPoint, nextPoint));
-			}*/
+				var nextPrimeLongitude = currentPoint.longitude() + (1 + deltaAlpha) * (nextPoint.longitude() - currentPoint.longitude());
+				var nextPrimeLatitude = currentPoint.latitude() + (1 + deltaAlpha) * (nextPoint.latitude() - currentPoint.latitude());
+				
+				var currentPrime = Point.fromLngLat(currentPrimeLongitude, currentPrimeLatitude);
+				var nextPrime = Point.fromLngLat(nextPrimeLongitude, nextPrimeLatitude);
+				
+				if (!evader.crossesAnyObstacles(currentPrime, nextPrime)) {
+					waypoints.add(currentPrime);
+					waypoints.add(nextPrime); // TODO radsej nech sa stara o waypoints[-1]
+					skipThisWaypoint = true;
+				}
+			} else {
+				waypoints.add(currentPoint);
+			}
 		}
 		
 		// loop back
@@ -210,6 +232,7 @@ public class PathPlanner {
 	 * @param sequence An existing TSP circuit - sequence of vertex ids (indices in this.map)
 	 */
 	// TODO: pokec o tom, ze z pokusov sa zda, ze takto ich zmiesat je lepsie
+	// TODO: rename, toto nie je 2opt
 	private void swap2opt(ArrayList<Integer> sequence) {
 		for (int i = 0; i < NUMBER_OF_SENSORS + 1; i++)
 			for (int j = 0; j < NUMBER_OF_SENSORS + 1; j++) {
