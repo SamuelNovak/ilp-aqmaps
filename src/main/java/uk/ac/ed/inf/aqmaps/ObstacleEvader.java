@@ -150,4 +150,21 @@ public class ObstacleEvader {
 		else
 			return RotationDirection.Negative;
 	}
+	
+	public Point generateEvasionWaypoint(ArrayList<Point> obstacle, Point origin, double angle) {
+		var dir = chooseEvasionDirection(obstacle, origin, angle);
+		Point next = null;
+		
+		// heuristic
+		var length = 2 * DroneController.MOVE_LENGTH;
+		
+		while (next == null || DroneController.pointOutOfBounds(next) || crossesAnyObstacles(origin, next)) {
+			angle += dir.getValue() * 10;
+			var nextLongitude = origin.longitude() + length * Math.cos(Math.toRadians(angle));
+			var nextLatitude = origin.latitude() + length * Math.sin(Math.toRadians(angle));
+			next = Point.fromLngLat(nextLongitude, nextLatitude);
+		}
+		
+		return next;
+	}
 }
