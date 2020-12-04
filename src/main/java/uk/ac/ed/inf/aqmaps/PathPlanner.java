@@ -215,14 +215,14 @@ public class PathPlanner {
 				if (i == j)
 					continue;
 				
-				// Prepare vertices sequence[i-1] --- sequence[i] --- sequence[i+1] (mod 34)
-				// same for sequence[j-1] --- sequence[j] --- sequence[j+1] (mod 34)
+				// Prepare vertices sequence[i-1] --- sequence[i] --- sequence[i+1] (mod (NUMBER_OF_SENSORS + 1))
+				// same for sequence[j-1] --- sequence[j] --- sequence[j+1] (mod (NUMBER_OF_SENSORS + 1))
 				var verticesAroundI = new int[4];
 				var verticesAroundJ = new int[4];
 				
 				for (int k = -1; k < 3; k++) {
-					verticesAroundI[k+1] = sequence.get((34 + i + k) % 34);
-					verticesAroundJ[k+1] = sequence.get((34 + j + k) % 34);
+					verticesAroundI[k+1] = sequence.get(((NUMBER_OF_SENSORS + 1) + i + k) % (NUMBER_OF_SENSORS + 1));
+					verticesAroundJ[k+1] = sequence.get(((NUMBER_OF_SENSORS + 1) + j + k) % (NUMBER_OF_SENSORS + 1));
 				}
 				
 				// check if swapping vertices on the same line makes it better
@@ -242,7 +242,7 @@ public class PathPlanner {
 					// check if this produced a better overall path, if so update the sequence
 					if (swappedLength < originalLength) {
 						sequence.set(i, verticesAroundI[2]);
-						sequence.set((i+1) % 34, verticesAroundI[1]);
+						sequence.set((i+1) % (NUMBER_OF_SENSORS + 1), verticesAroundI[1]);
 					}
 				}				
 				
@@ -251,23 +251,23 @@ public class PathPlanner {
 					// use global path length (straight line distances of the entire circuit)
 					double originalLength = 0;
 					for (int k = 0; k < NUMBER_OF_SENSORS + 1; k++)
-						originalLength += distances[sequence.get(k)][sequence.get((k+1) % 34)];
+						originalLength += distances[sequence.get(k)][sequence.get((k+1) % (NUMBER_OF_SENSORS + 1))];
 					
 					// create a trial sequence by swapping the endpoints of two edges and compute the global path
 					var trialSequence = new ArrayList<Integer>();
-					for (int k = 0; k < 34; k++)
+					for (int k = 0; k < (NUMBER_OF_SENSORS + 1); k++)
 						trialSequence.add((int) sequence.get(k));
-					trialSequence.set((i + 1) % 34, verticesAroundJ[2]);
-					trialSequence.set((j + 1) % 34, verticesAroundI[2]);
+					trialSequence.set((i + 1) % (NUMBER_OF_SENSORS + 1), verticesAroundJ[2]);
+					trialSequence.set((j + 1) % (NUMBER_OF_SENSORS + 1), verticesAroundI[2]);
 					
 					double trialLength = 0;
-					for (int k = 0; k < 34; k++)
-						trialLength += distances[trialSequence.get(k)][trialSequence.get((k+1) % 34)];
+					for (int k = 0; k < (NUMBER_OF_SENSORS + 1); k++)
+						trialLength += distances[trialSequence.get(k)][trialSequence.get((k+1) % (NUMBER_OF_SENSORS + 1))];
 					
 					// check if this produced a better overall path, if so update the sequence
 					if (trialLength < originalLength) {
-						sequence.set((i + 1) % 34, verticesAroundJ[2]);
-						sequence.set((j + 1) % 34, verticesAroundI[2]);
+						sequence.set((i + 1) % (NUMBER_OF_SENSORS + 1), verticesAroundJ[2]);
+						sequence.set((j + 1) % (NUMBER_OF_SENSORS + 1), verticesAroundI[2]);
 					}
 				}
 			}
