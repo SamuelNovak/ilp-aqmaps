@@ -53,6 +53,10 @@ public class ObstacleEvader {
 		return noFlyZones;
 	}
 	
+	public boolean crossesAnyObstacles(Point a1, Point a2) {
+		return !crossedObstacles(a1, a2).isEmpty();
+	}
+	
 	public ArrayList<ArrayList<Point>> crossedObstacles(Point a1, Point a2) {
 		ArrayList<ArrayList<Point>> ret = new ArrayList<ArrayList<Point>>();
 		for (var zone : noFlyZones) {			
