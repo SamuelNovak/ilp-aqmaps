@@ -60,7 +60,7 @@
   	      <archive>
   	        <index>true</index>
   	        <manifest>
-  	          <mainClass>uk.ac.ed.inf.aqmaps.App</mainClass>
+  	          <mainClass>uk.ac.ed.inf.aqmaps.AirQualityMapsApp</mainClass>
   	        </manifest>
   	      </archive>
   	    </configuration>
