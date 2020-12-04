@@ -37,10 +37,10 @@ public class Move {
 		return next;
 	}
 	
-	public String serialize(int move_number) {
-		// format: {move number},{original longitude},{original latitude},{direction},{next longitude},{next latitude},{sensor location W3W}
+	public String serialize(int moveNumber) {
+		// format: {moveNumber},{original longitude},{original latitude},{direction},{next longitude},{next latitude},{sensor location W3W}
 		return String.format("%d,%f,%f,%d,%f,%f,%s\n",
-				move_number, original.longitude(), original.latitude(), 
+				moveNumber, original.longitude(), original.latitude(), 
 				direction, next.longitude(), next.latitude(),
 				sensor == null ? "null" : sensor.location);
 	}
