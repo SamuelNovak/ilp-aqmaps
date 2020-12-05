@@ -127,10 +127,8 @@ public class DroneController {
 		return next;
 	}
 	
-	private ArrayList<Point> moveIntersectsObstacle(Point end) {
+	private Obstacle moveIntersectsObstacle(Point end) {
 		var start = Point.fromLngLat(longitude, latitude);
-		
-		//return (!evader.crossesAnyObstacles(start, end));
 		return evader.nearestCrossedObstacle(start, end);
 	}
 	

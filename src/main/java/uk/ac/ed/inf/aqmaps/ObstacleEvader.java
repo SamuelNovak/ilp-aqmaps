@@ -2,10 +2,9 @@ package uk.ac.ed.inf.aqmaps;
 
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 
-import com.mapbox.geojson.Feature;
 import com.mapbox.geojson.FeatureCollection;
-import com.mapbox.geojson.LineString;
 import com.mapbox.geojson.Point;
 import com.mapbox.geojson.Polygon;
 
@@ -19,27 +18,27 @@ public class ObstacleEvader {
 	private final static double LON_MIN = -3.192473;
 	
 	/** Storage for obstacle polygons (unpacked) */
-	private ArrayList<ArrayList<Point>> noFlyZones;
-	private ArrayList<Point> boundary;
-	private HashMap<ArrayList<Point>, Point> averages;
+	private ArrayList<Obstacle> noFlyZones;
+	private Obstacle boundary;
+	private HashMap<Obstacle, Point> averages;
 	
 	public ObstacleEvader(FeatureCollection noFlyZones) {		
 		var zones = noFlyZones.features();
 		// initialized with size
-		averages = new HashMap<ArrayList<Point>, Point>(zones.size());
+		averages = new HashMap<Obstacle, Point>(zones.size());
 		
-		this.noFlyZones = new ArrayList<ArrayList<Point>>();
+		this.noFlyZones = new ArrayList<Obstacle>();
 		
 		for (int i = 0; i < zones.size(); i++) {
 			var polygon = (Polygon) zones.get(i).geometry();
-			// get external coordinates
-			var points = (ArrayList<Point>) polygon.coordinates().get(0);
-			this.noFlyZones.add(points);
-			averages.put(points, getAveragePoint(points));
+			// get external coordinates (hence index 0)
+			var obstacle = Obstacle.fromList(polygon.coordinates().get(0));
+			this.noFlyZones.add(obstacle);
+			averages.put(obstacle, getAveragePoint(obstacle));
 		}
 		
 		// generate the boundary polygon
-		boundary = new ArrayList<Point>();
+		boundary = new Obstacle();
 		boundary.add(Point.fromLngLat(LON_MIN, LAT_MIN));
 		boundary.add(Point.fromLngLat(LON_MAX, LAT_MIN));
 		boundary.add(Point.fromLngLat(LON_MAX, LAT_MAX));
@@ -51,7 +50,7 @@ public class ObstacleEvader {
 		averages.put(boundary, getAveragePoint(boundary));
 	}
 	
-	private Point getAveragePoint(ArrayList<Point> points) {
+	private Point getAveragePoint(List<Point> points) {
 		double longitude = 0;
 		double latitude = 0;
 		
@@ -67,8 +66,8 @@ public class ObstacleEvader {
 		return !allCrossedObstacles(a1, a2).isEmpty();
 	}
 	
-	public ArrayList<Point> nearestCrossedObstacle(Point origin, Point end) {		
-		ArrayList<Point> nearestObstacle = null;
+	public Obstacle nearestCrossedObstacle(Point origin, Point end) {		
+		Obstacle nearestObstacle = null;
 		// a distance will never be negative - using -1 to signify no value yet
 		double minDistance = -1;
 		
@@ -86,8 +85,8 @@ public class ObstacleEvader {
 		return nearestObstacle;
 	}
 	
-	private ArrayList<ArrayList<Point>> allCrossedObstacles(Point a1, Point a2) {
-		ArrayList<ArrayList<Point>> ret = new ArrayList<ArrayList<Point>>();
+	private ArrayList<Obstacle> allCrossedObstacles(Point a1, Point a2) {
+		ArrayList<Obstacle> ret = new ArrayList<Obstacle>();
 		for (var zone : noFlyZones) {			
 			if (crossesOneObstacle(a1, a2, zone))
 				ret.add(zone);
@@ -95,31 +94,31 @@ public class ObstacleEvader {
 		return ret;
 	}
 	
-	private boolean crossesOneObstacle(Point a1, Point a2, ArrayList<Point> points) {		
-		return !obstacleIntersections(a1, a2, points).isEmpty();
+	private boolean crossesOneObstacle(Point a1, Point a2, Obstacle obstacle) {		
+		return !obstacleIntersections(a1, a2, obstacle).isEmpty();
 	}
 	
 	/** Find if and where a line intersects an obstacle (no fly zone).
 	 * @param a1 Line start point
 	 * @param a2 Line end point
-	 * @param points Obstacle
+	 * @param obstacle Obstacle
 	 * @return list of pairs: left: intersection point;
 	 * 						  right: corresponding index i, such that intersection occurred with line points[i] -- points[i+1] (mod points.size())
 	 */
-	private ArrayList<Pair<Point, Integer>> obstacleIntersections(Point a1, Point a2, ArrayList<Point> points) {
+	private ArrayList<Pair<Point, Integer>> obstacleIntersections(Point a1, Point a2, Obstacle obstacle) {
 		var intersections = new ArrayList<Pair<Point, Integer>>();
 		// Iterate until the second-to-last, the last one needs to wrap around (path is cyclic) and so will be handled separately
-		for (int i = 0; i < points.size() - 1; i++) {
-			var intsection = intersection(a1, a2, points.get(i), points.get((i+1) % points.size()));
+		for (int i = 0; i < obstacle.size() - 1; i++) {
+			var intsection = intersection(a1, a2, obstacle.get(i), obstacle.get((i+1) % obstacle.size()));
 			if (intsection != null)
 				// Found an intersection with a no-fly zone
 				intersections.add(new Pair<Point, Integer>(intsection, i));
 		}
 		// Here handle the final line segment
-		var intsection = intersection(a1, a2, points.get(0), points.get(points.size() - 1));
+		var intsection = intersection(a1, a2, obstacle.get(0), obstacle.get(obstacle.size() - 1));
 		if (intsection != null)
 			// Found an intersection
-			intersections.add(new Pair<Point, Integer>(intsection, points.size() - 1));
+			intersections.add(new Pair<Point, Integer>(intsection, obstacle.size() - 1));
 		
 		return intersections;
 	}
@@ -162,7 +161,7 @@ public class ObstacleEvader {
 		return Point.fromLngLat(x, y);
 	}
 
-	public RotationDirection chooseEvasionDirection(ArrayList<Point> obstacle, Point origin, double angle) {
+	public RotationDirection chooseEvasionDirection(Obstacle obstacle, Point origin, double angle) {
 		var average = averages.get(obstacle);
 		var phi = Math.toDegrees(Math.atan2(average.latitude() - origin.latitude(), average.longitude() - origin.longitude()));
 		
