@@ -146,9 +146,9 @@ public class ObstacleEvader {
 		var phi = Math.toDegrees(Math.atan2(average.latitude() - origin.latitude(), average.longitude() - origin.longitude()));
 		
 		if (phi > angle)
-			return RotationDirection.Positive;
-		else
 			return RotationDirection.Negative;
+		else
+			return RotationDirection.Positive;
 	}
 	
 	public Point generateEvasionWaypoint(ArrayList<Point> obstacle, Point origin, double angle) {

@@ -49,6 +49,7 @@ public class DroneController {
 		
 		int waypointIndex = 1;
 		Point target;
+		var evasionDirection = RotationDirection.None;
 		
 		while (waypointIndex < waypoints.size()) {
 			target = waypoints.get(waypointIndex);
@@ -70,15 +71,29 @@ public class DroneController {
 			if (!isMoveLegal(next)) {
 				var obstacle = evader.nearestCrossedObstacle(here, next);
 				if (obstacle != null) {
+					/*
 					// generate a waypoint and add it to the sequence
 					var evasionWaypoint = evader.generateEvasionWaypoint(obstacle, here, moveAngle);
 					System.out.println("Adding an evasion waypoint");
 					waypoints.add(waypointIndex, evasionWaypoint);
 					continue;
+					*/
+					System.out.print(String.format("Obstacle in the way at angle %d. Currently evasionDirection: %d -> ", moveAngle, evasionDirection.getValue()));
+					if (evasionDirection.equal(RotationDirection.None))
+						evasionDirection = evader.chooseEvasionDirection(obstacle, here, targetAngle);
+					System.out.println(evasionDirection.getValue());
+					while (!isMoveLegal(next)) {
+						moveAngle = (moveAngle + 360 + evasionDirection.getValue() * 10) % 360;
+						next = computeMove(moveAngle);
+					}
+					// found a place to go
+					System.out.println(String.format("Resolved, taking angle %d.", moveAngle));
 				} else {
 					System.out.println("drone tried to leave confinement");
 					break;
 				}
+			} else {
+				evasionDirection = RotationDirection.None;
 			}
 			
 			// store original location
@@ -101,7 +116,7 @@ public class DroneController {
 					// the easy case
 					sensor = sensorsInRange.get(0);
 				} else if (sensorsInRange.size() == 2) {
-					// the more complex case
+					// the more complex case TODO
 					System.out.println("Two in range");
 					sensor = sensorsInRange.get(0);
 				} else {
