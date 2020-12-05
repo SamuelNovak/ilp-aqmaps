@@ -3,15 +3,24 @@ package uk.ac.ed.inf.aqmaps;
 import java.util.ArrayList;
 import java.util.HashMap;
 
+import com.mapbox.geojson.Feature;
 import com.mapbox.geojson.FeatureCollection;
+import com.mapbox.geojson.LineString;
 import com.mapbox.geojson.Point;
 import com.mapbox.geojson.Polygon;
 
 
 public class ObstacleEvader {
 
+	// Flight boundaries
+	private final static double LAT_MAX = 55.946233; // latitude
+	private final static double LAT_MIN = 55.942617;
+	private final static double LON_MAX = -3.184319; // longitude
+	private final static double LON_MIN = -3.192473;
+	
 	/** Storage for obstacle polygons (unpacked) */
 	private ArrayList<ArrayList<Point>> noFlyZones;
+	private ArrayList<Point> boundary;
 	private HashMap<ArrayList<Point>, Point> averages;
 	
 	public ObstacleEvader(FeatureCollection noFlyZones) {		
@@ -28,6 +37,18 @@ public class ObstacleEvader {
 			this.noFlyZones.add(points);
 			averages.put(points, getAveragePoint(points));
 		}
+		
+		// generate the boundary polygon
+		boundary = new ArrayList<Point>();
+		boundary.add(Point.fromLngLat(LON_MIN, LAT_MIN));
+		boundary.add(Point.fromLngLat(LON_MAX, LAT_MIN));
+		boundary.add(Point.fromLngLat(LON_MAX, LAT_MAX));
+		boundary.add(Point.fromLngLat(LON_MIN, LAT_MAX));
+		boundary.add(Point.fromLngLat(LON_MIN, LAT_MIN));
+		
+		// handle it exactly like other boundaries of no-fly zones - no-fly zone is everything on this boundary and outside, and it works exactly the same as buildings (uses intersections)
+		this.noFlyZones.add(boundary);
+		averages.put(boundary, getAveragePoint(boundary));
 	}
 	
 	private Point getAveragePoint(ArrayList<Point> points) {
@@ -149,22 +170,5 @@ public class ObstacleEvader {
 			return RotationDirection.Negative;
 		else
 			return RotationDirection.Positive;
-	}
-	
-	public Point generateEvasionWaypoint(ArrayList<Point> obstacle, Point origin, double angle) {
-		var dir = chooseEvasionDirection(obstacle, origin, angle);
-		Point next = null;
-		
-		// heuristic
-		var length = 2 * DroneController.MOVE_LENGTH;
-		
-		while (next == null || DroneController.pointOutOfBounds(next) || crossesAnyObstacles(origin, next)) {
-			angle += dir.getValue() * 10;
-			var nextLongitude = origin.longitude() + length * Math.cos(Math.toRadians(angle));
-			var nextLatitude = origin.latitude() + length * Math.sin(Math.toRadians(angle));
-			next = Point.fromLngLat(nextLongitude, nextLatitude);
-		}
-		
-		return next;
 	}
 }

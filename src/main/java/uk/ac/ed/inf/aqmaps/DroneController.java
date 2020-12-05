@@ -12,13 +12,8 @@ import com.mapbox.geojson.Point;
 
 public class DroneController {
 
-	// Flight boundaries
-	private final static double LAT_MAX = 55.946233; // latitude
-	private final static double LAT_MIN = 55.942617;
-	private final static double LON_MAX = -3.184319; // longitude
-	private final static double LON_MIN = -3.192473;
 	// drone parameters
-	public static final double MOVE_LENGTH = 0.0003; // length of EVERY drone step in degrees
+	private final double MOVE_LENGTH = 0.0003; // length of EVERY drone step in degrees
 	private final double SENSOR_READ_MAX_DISTANCE = 0.0002; // maximum distance from a sensor to receive data - the drone has to be STRICTLY closer than this
 	private final int MAX_BATTERY = 150;
 	
@@ -54,7 +49,7 @@ public class DroneController {
 		while (waypointIndex < waypoints.size()) {
 			target = waypoints.get(waypointIndex);
 			if (droneDistance(target) < SENSOR_READ_MAX_DISTANCE) {
-				// waypoint reached
+				// waypoint reached - navigate towards the next waypoint
 				waypointIndex++;
 				continue;
 			}
@@ -68,30 +63,19 @@ public class DroneController {
 			// take a step in the phi direction
 			var next = computeMove(moveAngle);
 			
-			if (!isMoveLegal(next)) {
-				var obstacle = evader.nearestCrossedObstacle(here, next);
-				if (obstacle != null) {
-					/*
-					// generate a waypoint and add it to the sequence
-					var evasionWaypoint = evader.generateEvasionWaypoint(obstacle, here, moveAngle);
-					System.out.println("Adding an evasion waypoint");
-					waypoints.add(waypointIndex, evasionWaypoint);
-					continue;
-					*/
-					System.out.print(String.format("Obstacle in the way at angle %d. Currently evasionDirection: %d -> ", moveAngle, evasionDirection.getValue()));
-					if (evasionDirection.equal(RotationDirection.None))
-						evasionDirection = evader.chooseEvasionDirection(obstacle, here, targetAngle);
-					System.out.println(evasionDirection.getValue());
-					while (!isMoveLegal(next)) {
-						moveAngle = (moveAngle + 360 + evasionDirection.getValue() * 10) % 360;
-						next = computeMove(moveAngle);
-					}
-					// found a place to go
-					System.out.println(String.format("Resolved, taking angle %d.", moveAngle));
-				} else {
-					System.out.println("drone tried to leave confinement");
-					break;
+			// get the nearest obstacle crossed by this move, if any (taking nearest in case there are multiple)
+			var obstacle = moveIntersectsObstacle(next);
+			if (obstacle != null) {
+				if (evasionDirection.equal(RotationDirection.None))
+					evasionDirection = evader.chooseEvasionDirection(obstacle, here, targetAngle);
+
+				while (obstacle != null) {
+					moveAngle = (moveAngle + 360 + evasionDirection.getValue() * 10) % 360;
+					next = computeMove(moveAngle);
+					obstacle = moveIntersectsObstacle(next);
 				}
+				// found a place to go
+
 			} else {
 				evasionDirection = RotationDirection.None;
 			}
@@ -132,83 +116,6 @@ public class DroneController {
 			if (battery == 0)
 				break;
 		}
-		/*
-		for (int i = 1; i < waypoints.size(); i++) {
-			// starting at i = 1, because waypoint number 0 is the starting location
-			var target = waypoints.get(i);
-			
-			Point evasionWaypoint = null;
-			// approach the target
-			// drone try to get close to the target, as it could be a sensor
-			// TODO handle sensor too close
-			while (droneDistance(target) >= SENSOR_READ_MAX_DISTANCE) {
-				// real angle between current location and target
-				var targetAngle = Math.toDegrees(Math.atan2(target.latitude() - latitude, target.longitude() - longitude));
-				// allowed angle: multiple of 10, also within [0,350] (no negatives)
-				var moveAngle = (10 * (int) Math.round(targetAngle / 10) + 360) % 360;
-				
-				var here = Point.fromLngLat(longitude, latitude);
-				// take a step in the phi direction
-				var next = computeMove(moveAngle);
-				
-				if (!isMoveLegal(next)) {
-					var obstacle = evader.nearestCrossedObstacle(here, next);
-					if (obstacle != null) {
-						// generate a waypoint and add it to the sequence
-						evasionWaypoint = evader.generateEvasionWaypoint(obstacle, here, targetAngle);
-						waypoints.add(i, evasionWaypoint);
-					}
-				} else {
-					
-				}
-				
-				// store original location
-				var old_longitude = longitude;
-				var old_latitude = latitude;
-				
-				// update the drone location and battery
-				longitude = next.longitude();
-				latitude = next.latitude();
-				battery -= 1;
-				
-				// check if there is a sensor there (in the new location)
-				// if there is a sensor, its data will be stored in trajectory
-				var sensorsInRange = getSensorsInRange();
-				if (sensorsInRange == null) {
-					trajectory.add(new Move(Point.fromLngLat(old_longitude, old_latitude), moveAngle, Point.fromLngLat(longitude, latitude), null));
-				} else {
-					SensorReading sensor = null;
-					if (sensorsInRange.size() == 1) {
-						// the easy case
-						sensor = sensorsInRange.get(0);
-					} else if (sensorsInRange.size() == 2) {
-						// the more complex case
-						System.out.println("Two in range");
-						sensor = sensorsInRange.get(0);
-					} else {
-						// panic TODO
-						System.out.println("Way too many sensors in one location!");
-						sensor = sensorsInRange.get(0);
-					}
-					
-					trajectory.add(new Move(Point.fromLngLat(old_longitude, old_latitude), moveAngle, Point.fromLngLat(longitude, latitude), sensor));
-				}
-				
-				// record the move (and potentially sensor data)
-				// TODO trajectory.add(new Move(Point.fromLngLat(old_longitude, old_latitude), phi, Point.fromLngLat(longitude, latitude), sensor));
-				
-				// if battery is depleted after this move, drone has to stop
-				if (battery == 0)
-					break;
-			}
-			
-			// if battery is depleted, drone has to stop
-			if (battery == 0) {
-				System.out.println(String.format("Drone battery depleted when navigating to waypoint %d (indexed from 0; number of waypoints is %d).", i, waypoints.size()));
-				break;
-			}
-		}
-		*/
 		
 		System.out.println("Drone journey finished.\nRemaining battery: " + Integer.toString(battery));
 	}
@@ -220,18 +127,11 @@ public class DroneController {
 		return next;
 	}
 	
-	private boolean isMoveLegal(Point end) {
+	private ArrayList<Point> moveIntersectsObstacle(Point end) {
 		var start = Point.fromLngLat(longitude, latitude);
 		
-		return (!pointOutOfBounds(end) && !evader.crossesAnyObstacles(start, end));
-	}
-	
-	public static boolean pointOutOfBounds(Point point) {
-		var longitude = point.longitude();
-		var latitude = point.latitude();
-		
-		return ((longitude >= LON_MAX) || (longitude <= LON_MIN)
-				|| (latitude >= LAT_MAX) || (latitude <= LAT_MIN));
+		//return (!evader.crossesAnyObstacles(start, end));
+		return evader.nearestCrossedObstacle(start, end);
 	}
 	
 	private ArrayList<SensorReading> getSensorsInRange() {
