@@ -18,6 +18,7 @@ public class DroneController {
 	private final int MAX_BATTERY = 150;
 	
 	private final ArrayList<SensorReading> sensors;
+	private ArrayList<SensorReading> visitedSensors;
 	
 	private int battery = MAX_BATTERY;
 	private double latitude, longitude;
@@ -30,6 +31,7 @@ public class DroneController {
 	public DroneController(ArrayList<SensorReading> sensors, ObstacleEvader evader) {
 		this.sensors = sensors;
 		this.evader = evader;
+		visitedSensors = new ArrayList<SensorReading>();
 	}
 
 	public void executePathPlan(ArrayList<Point> waypoints) {
@@ -41,15 +43,32 @@ public class DroneController {
 		longitude = start.longitude();
 		latitude = start.latitude();
 		
-		
 		int waypointIndex = 1;
 		Point target;
 		var evasionDirection = RotationDirection.None;
 		
+		var needToReturn = false;
+		var needToReturnToStart = false;
+		
 		System.out.println("\nInitiating drone flight.");
 		
 		while (waypointIndex < waypoints.size()) {
-			target = waypoints.get(waypointIndex);
+			if (!needToReturn && !needToReturnToStart)
+				// usual case - just go to the next waypoint
+				target = waypoints.get(waypointIndex);
+			else {
+				if (trajectory.isEmpty()) {
+					// this case can only happen, if the drone's starting location has multiple sensors
+					target = waypoints.get(waypointIndex);
+					needToReturnToStart = true;
+				} else {
+					// return to previous point
+					target = trajectory.get(trajectory.size() - 1).getOriginal();
+					needToReturnToStart = false;
+				}
+			}
+			
+			
 			if (droneDistance(target) < SENSOR_READ_MAX_DISTANCE) {
 				// waypoint reached - navigate towards the next waypoint
 				waypointIndex++;
@@ -93,24 +112,19 @@ public class DroneController {
 			
 			// check if there is a sensor there (in the new location)
 			// if there is a sensor, its data will be stored in trajectory
-			var sensorsInRange = getSensorsInRange();
+			var sensorsInRange = getUnvisitedSensorsInRange();
 			if (sensorsInRange == null) {
 				trajectory.add(new Move(Point.fromLngLat(old_longitude, old_latitude), moveAngle, Point.fromLngLat(longitude, latitude), null));
+
 			} else {
-				SensorReading sensor = null;
-				if (sensorsInRange.size() == 1) {
-					// the easy case
-					sensor = sensorsInRange.get(0);
-				} else if (sensorsInRange.size() == 2) {
-					// the more complex case TODO
-					System.out.println("Two in range");
-					sensor = sensorsInRange.get(0);
-				} else {
-					// panic TODO
-					System.out.println("Way too many sensors in one location!");
-					sensor = sensorsInRange.get(0);
-				}
+				SensorReading sensor = sensorsInRange.get(0);
+				if (sensorsInRange.size() > 1) {
+					System.out.println("Multiple sensors in range - reading one of them, will return here for the rest.");
+					needToReturn = true;
+				} else
+					needToReturn = false;
 				
+				visitedSensors.add(sensor);
 				trajectory.add(new Move(Point.fromLngLat(old_longitude, old_latitude), moveAngle, Point.fromLngLat(longitude, latitude), sensor));
 			}
 			
@@ -136,18 +150,18 @@ public class DroneController {
 		return evader.nearestCrossedObstacle(start, end);
 	}
 	
-	private ArrayList<SensorReading> getSensorsInRange() {
-		var sensorsInRange = new ArrayList<SensorReading>();
+	private ArrayList<SensorReading> getUnvisitedSensorsInRange() {
+		var unvisitedSensorsInRange = new ArrayList<SensorReading>();
 		for (var s : sensors) {
-			if (droneDistance(s) < SENSOR_READ_MAX_DISTANCE) {
-				sensorsInRange.add(s);
+			if (droneDistance(s) < SENSOR_READ_MAX_DISTANCE && !visitedSensors.contains(s)) {
+				unvisitedSensorsInRange.add(s);
 				break;
 			}
 		}
-		if (sensorsInRange.isEmpty())
+		if (unvisitedSensorsInRange.isEmpty())
 			return null;
 		else
-			return sensorsInRange;
+			return unvisitedSensorsInRange;
 	}
 
 	private double droneDistance(Point pt) {
