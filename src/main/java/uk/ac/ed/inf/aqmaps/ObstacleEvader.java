@@ -18,7 +18,6 @@ public class ObstacleEvader {
 	private final double LON_MIN = -3.192473;
 	
 	private ArrayList<Obstacle> noFlyZones;
-	private Obstacle boundary;
 	private HashMap<Obstacle, Point> averages;
 	
 	public ObstacleEvader(FeatureCollection noFlyZones) {		
@@ -37,7 +36,7 @@ public class ObstacleEvader {
 		}
 		
 		// generate the boundary polygon
-		boundary = new Obstacle();
+		var boundary = new Obstacle();
 		boundary.add(Point.fromLngLat(LON_MIN, LAT_MIN));
 		boundary.add(Point.fromLngLat(LON_MAX, LAT_MIN));
 		boundary.add(Point.fromLngLat(LON_MAX, LAT_MAX));
@@ -53,7 +52,9 @@ public class ObstacleEvader {
 		double longitude = 0;
 		double latitude = 0;
 		
-		for (var pt : points) {
+		// iterate over all points, except the last one - by design, points is a closed polygon, meaning its last point is same as its first
+		for (int i = 0; i < points.size() - 1; i++) {
+			var pt = points.get(i);
 			longitude += pt.longitude();
 			latitude += pt.latitude();
 		}
@@ -65,15 +66,15 @@ public class ObstacleEvader {
 		return !allCrossedObstacles(a1, a2).isEmpty();
 	}
 	
-	public Obstacle nearestCrossedObstacle(Point origin, Point end) {		
+	public Obstacle nearestCrossedObstacle(Point a1, Point a2) {		
 		Obstacle nearestObstacle = null;
 		// a distance will never be negative - using -1 to signify no value yet
 		double minDistance = -1;
 		
 		for (var obs : noFlyZones) {
-			var intersections = obstacleIntersections(origin, end, obs);
+			var intersections = obstacleIntersections(a1, a2, obs);
 			for (var inter : intersections) {
-				var dist = Math.hypot(origin.longitude() - inter.left.longitude(), origin.latitude() - inter.left.latitude());
+				var dist = Math.hypot(a1.longitude() - inter.left.longitude(), a1.latitude() - inter.left.latitude());
 				if (minDistance == -1 || dist < minDistance) {
 					minDistance = dist;
 					nearestObstacle = obs;

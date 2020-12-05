@@ -33,7 +33,7 @@ public class PathPlanner {
 			}
 	}
 	
-	private static double distance(Point x, Point y) {
+	private double distance(Point x, Point y) {
 		return Math.hypot(x.latitude() - y.latitude(), x.longitude() - y.longitude());
 	}
 
