@@ -47,24 +47,17 @@ public class DroneController {
 		var evasionDirection = RotationDirection.None;
 		
 		var needToReturn = false;
-		var needToReturnToStart = false;
 		
 		System.out.println("\nInitiating drone flight.");
 		
 		while (waypointIndex < waypoints.size()) {
-			if (!needToReturn && !needToReturnToStart)
+			if (!needToReturn)
 				// usual case - just go to the next waypoint
 				target = waypoints.get(waypointIndex);
 			else {
-				if (trajectory.isEmpty()) {
-					// this case can only happen, if the drone's starting location has multiple sensors
-					target = waypoints.get(waypointIndex);
-					needToReturnToStart = true;
-				} else {
-					// return to previous point
-					target = trajectory.get(trajectory.size() - 1).getOriginal();
-					needToReturnToStart = false;
-				}
+				// return to previous point
+				target = trajectory.get(trajectory.size() - 1).getOriginal();
+				
 			}
 			
 			

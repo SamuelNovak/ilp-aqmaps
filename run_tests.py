@@ -28,7 +28,7 @@ def ranges_numbers(s, admit_month_variable):
                 numbers += list(range(int(start), int(end)+1))
         return numbers
     except:
-        raise ArgumentTypeError("Ranges must be of format (R|N)(,(R|N))* where R = (n\\-n) and N = ({integer}|\"M\")")
+        raise ArgumentTypeError("Ranges must be of format (R|N)(,(R|N))* where R = (n\\-n); N = (n|\"M\") for days and N = n for months; n = {positive integer}")
 
 parser = ArgumentParser()
 parser.add_argument("target", type=str)
