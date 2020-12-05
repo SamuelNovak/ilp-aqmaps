@@ -26,7 +26,6 @@ public class DroneController {
 	private ArrayList<Move> trajectory;
 	
 	private ObstacleEvader evader;
-	// private RotationDirection avoidingDirection = RotationDirection.None; // TODO rename to evasionDirection
 	
 	public DroneController(ArrayList<SensorReading> sensors, ObstacleEvader evader) {
 		this.sensors = sensors;

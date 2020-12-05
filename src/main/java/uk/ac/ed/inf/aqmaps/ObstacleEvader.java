@@ -11,13 +11,12 @@ import com.mapbox.geojson.Polygon;
 
 public class ObstacleEvader {
 
-	// Flight boundaries
-	private final static double LAT_MAX = 55.946233; // latitude
-	private final static double LAT_MIN = 55.942617;
-	private final static double LON_MAX = -3.184319; // longitude
-	private final static double LON_MIN = -3.192473;
+	// Confinement area
+	private final double LAT_MAX = 55.946233; // latitude
+	private final double LAT_MIN = 55.942617;
+	private final double LON_MAX = -3.184319; // longitude
+	private final double LON_MIN = -3.192473;
 	
-	/** Storage for obstacle polygons (unpacked) */
 	private ArrayList<Obstacle> noFlyZones;
 	private Obstacle boundary;
 	private HashMap<Obstacle, Point> averages;

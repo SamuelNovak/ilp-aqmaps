@@ -38,7 +38,6 @@ public class PathPlanner {
 	}
 
 	// Path plan will be a sequence of waypoints for the drone
-	// TODO explanation: so in the future the drone can correct for weather etc., now it only knows the general path (but this will include waypoints to help avoid the no fly zones)
 	public ArrayList<Point> findPath(double startLatitude, double startLongitude) {
 		
 		// calculate the distances to the starting location - vertex at index NUMBER_OF_SENSORS
