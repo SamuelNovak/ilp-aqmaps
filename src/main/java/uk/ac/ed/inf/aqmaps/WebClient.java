@@ -71,7 +71,9 @@ public class WebClient {
 		Type sensorListType = new TypeToken<ArrayList<SensorReading>>() {}.getType();
 		ArrayList<SensorReading> sensorList = new Gson().fromJson(response, sensorListType);
 		
-		System.out.println("^-> Translating What3Words locations.");
+		// the following log line starts with └╼, inputting as Unicode codes for clarity
+		System.out.println("\u2514\u257c Translating What3Words locations.");
+		
 		for (int i = 0; i < sensorList.size(); i++) {
 			SensorReading reading = sensorList.get(i);
 			Point coords = loadPointFromWords(reading.location);

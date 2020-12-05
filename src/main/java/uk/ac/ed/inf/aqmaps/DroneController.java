@@ -46,6 +46,8 @@ public class DroneController {
 		Point target;
 		var evasionDirection = RotationDirection.None;
 		
+		System.out.println("\nInitiating drone flight.");
+		
 		while (waypointIndex < waypoints.size()) {
 			target = waypoints.get(waypointIndex);
 			if (droneDistance(target) < SENSOR_READ_MAX_DISTANCE) {
@@ -113,11 +115,13 @@ public class DroneController {
 			}
 			
 			// if battery is depleted after this move, drone has to stop
-			if (battery == 0)
+			if (battery == 0) {
+				System.out.println(String.format("Battery depleted while navigating to waypoint index %d/%d (indexed from 0).", waypointIndex, waypoints.size() - 1));
 				break;
+			}
 		}
 		
-		System.out.println("Drone journey finished.\nRemaining battery: " + Integer.toString(battery));
+		System.out.println(String.format("Drone journey finished.\nRemaining battery: %d\n", battery));
 	}
 	
 	private Point computeMove(double angle) {
@@ -208,6 +212,11 @@ public class DroneController {
 			
 			flightpathWriter.close();
 			readingsWriter.close();
+			
+			// the following log line start with ├╼ and └╼, inputting as Unicode codes for clarity
+			System.out.println("Saved data files:");
+			System.out.println("\u251c\u257c Fligh path record: " + flightpathFilename);
+			System.out.println("\u2514\u257c Map of readings and trajectory: " + readingsMapFilename);
 
 		} catch (IOException e) {
 			// if the file could not be created or written
