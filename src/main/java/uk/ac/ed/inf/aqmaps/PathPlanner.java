@@ -9,15 +9,12 @@ public class PathPlanner {
 	private final ArrayList<SensorReading> sensorList;
 	private final int NUMBER_OF_SENSORS;
 	
-	private ObstacleEvader evader;
-	
 	// matrix for distances between nodes (undirected weighted graph)
 	private double[][] distances;
 
 	public PathPlanner(ObstacleEvader evader, ArrayList<SensorReading> sensorList) {		
 		this.sensorList = sensorList;
 		this.NUMBER_OF_SENSORS = sensorList.size();
-		this.evader = evader;
 		
 		// Compute the distance matrix
 		distances = new double[NUMBER_OF_SENSORS + 1][NUMBER_OF_SENSORS + 1]; // (NUMBER_OF_SENSORS sensors) + (1 starting location)
@@ -27,10 +24,8 @@ public class PathPlanner {
 				else {
 					var iPoint = sensorList.get(i).toPoint();
 					var jPoint = sensorList.get(j).toPoint();
-					
-					// TODO
 
-					distances[i][j] = evader.crossesAnyObstacles(iPoint, jPoint) ? 1 : distance(iPoint, jPoint); // evader.evasionDistance(point_i, point_j);
+					distances[i][j] = evader.crossesAnyObstacles(iPoint, jPoint) ? 1 : distance(iPoint, jPoint);
 					
 					// distance matrix is symmetric
 					distances[j][i] = distances[i][j];
@@ -59,22 +54,18 @@ public class PathPlanner {
 		var waypoints = new ArrayList<Point>();
 		
 		for (int i = 0; i < NUMBER_OF_SENSORS + 1; i++) {			
-			Point currentPoint, nextPoint;
+			Point currentPoint;
 			
 			// assign the correct current and next points - take into account that one point might be the starting point (so it is not in not in this.sensorList)
 			if (i == 0) {
 				// starting point (vertex NUMBER_OF_SENSORS)
 				currentPoint = Point.fromLngLat(startLongitude, startLatitude);
-				// writing i+1 explicitly for clarity
-				nextPoint = sensorList.get(tspSequence.get(i+1)).toPoint();
 			} else if (i == NUMBER_OF_SENSORS) {
 				// we are at the last vertex, need to go back
 				currentPoint = sensorList.get(tspSequence.get(i)).toPoint();
-				nextPoint = Point.fromLngLat(startLongitude, startLatitude);
 			} else {
 				// general part of the sequence
 				currentPoint = sensorList.get(tspSequence.get(i)).toPoint();
-				nextPoint = sensorList.get(tspSequence.get(i + 1)).toPoint();
 			}
 			
 			waypoints.add(currentPoint);
@@ -199,7 +190,6 @@ public class PathPlanner {
 	/** Method to optimize an existing TSP circuit using a mixed Flip (local) & Swap heuristics - done in place
 	 * @param sequence An existing TSP circuit - sequence of vertex ids (indices in this.map)
 	 */
-	// TODO: pokec o tom, ze z pokusov sa zda, ze takto ich zmiesat je lepsie
 	private void flipSwap(ArrayList<Integer> sequence) {
 		for (int i = 0; i < NUMBER_OF_SENSORS + 1; i++) 
 			for (int j = 0; j < NUMBER_OF_SENSORS + 1; j++) {

@@ -29,14 +29,14 @@ with open("log.txt", "wb") as log:
     for i in range(1, 13):
         day = month = str(i).zfill(2)
         print(f"Running for {day} {month} {args.year}")
-        log.write(f"Log for {day} {month} {args.year}:\n\n".encode())
+        log.write(f"Log for {day} {month} {args.year}:\n\u2502\n".encode())
         try:
             proc = Popen(shlex.split(f"java -jar {path} " \
                                      + run_args.format(month=month,
                                                        day=day)),
                          stdout=PIPE)
             stdout, stderr = proc.communicate(None)
-            log.write(stdout)
+            log.write(b"\n".join(["\u2502\t".encode() + line for line in stdout.split(b"\n")]))
             if stderr:
                 log.write(b"Error:\n")
                 log.write(stderr)
