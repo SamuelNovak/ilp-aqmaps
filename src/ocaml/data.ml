@@ -21,3 +21,10 @@ type move = {
   }
 
 (* type polygon = point list *)
+
+let print_list lst =
+  let open Printf in
+  let open List in
+  printf "[ ";
+  iter (fun x -> printf "%d " x) lst;
+  printf "]\n"
