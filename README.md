@@ -1,7 +1,6 @@
 # Informatics Large Practical - Air Quality Maps
 
 This project was a coursework assignment in the course Informatics Large Practical at the University of Edinburgh.
-*(Marks not released yet)*
 
 ## Description
 
